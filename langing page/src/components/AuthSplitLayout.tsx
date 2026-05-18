@@ -121,23 +121,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
   }
 
   async function handleGoogleLogin() {
-    setLoading(true);
-    setError(null);
-    try {
-      const { error: authError } = window.location.href = 'https://github.com/vigneshbs33/fidsurance/'; return; //
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
-      });
-      if (authError) {
-        setError(authError.message);
-        setLoading(false);
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Google Login failed');
-      setLoading(false);
-    }
+    window.location.href = 'https://github.com/vigneshbs33/fidsurance/';
   }
 
   return (
