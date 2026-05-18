@@ -52,8 +52,7 @@ function DashboardContent() {
         .select('full_name')
         .eq('id', user.id)
         .maybeSingle()
-        .then(({ data }) => setName(data?.full_name?.split(' ')[0] || 'Member'))
-        .catch(() => {});
+        .then(({ data }) => setName(data?.full_name?.split(' ')[0] || 'Member'), () => {});
 
       supabase
         .from('assessment_sessions')
@@ -77,8 +76,7 @@ function DashboardContent() {
               income_lakh: data.income_lakh || 8.0,
             });
           }
-        })
-        .catch(() => {});
+        }, () => {});
 
       Promise.all([
         fetchAllPlans(),
