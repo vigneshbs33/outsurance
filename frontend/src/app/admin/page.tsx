@@ -48,7 +48,10 @@ export default function DedicatedAdminPortal() {
     "Ready for patient report on-device extraction triggers."
   ]);
 
+  const [isMounted, setIsMounted] = useState(false);
+
   useEffect(() => {
+    setIsMounted(true);
     const authSession = sessionStorage.getItem('admin_session');
     if (authSession === 'active') {
       setIsAuthenticated(true);
@@ -283,9 +286,17 @@ export default function DedicatedAdminPortal() {
     });
   }, [policySearch, policyFilter]);
 
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center font-mono text-[10px] text-neutral-500 uppercase tracking-widest">
+        CONNECTING SECURE SYSTEM TERMINAL...
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 relative select-none">
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 relative select-none" suppressHydrationWarning>
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
         
         <div className="w-full max-w-[420px] bg-neutral-900 border border-neutral-800 p-8 space-y-8 relative z-10" style={{ borderRadius: '2px' }}>
@@ -351,7 +362,7 @@ export default function DedicatedAdminPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex relative">
+    <div className="min-h-screen bg-white flex relative" suppressHydrationWarning>
       
       {/* 🚀 DEDICATED ADMIN SIDEBAR */}
       <aside className="hidden min-h-screen w-[290px] flex-col justify-between border-r border-neutral-200 bg-neutral-950 px-8 py-8 lg:flex shrink-0 text-white">
