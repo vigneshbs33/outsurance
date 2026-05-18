@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { SectionEyebrow } from '../../components/editorial';
 import { 
   Activity, Users, BarChart3, Zap, Database, RefreshCw, 
   Sliders, ShieldAlert, Server, Shield, Unlock, Lock, 
