@@ -19,8 +19,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html
       lang="en"
       className={`${syne.variable} ${barlowCondensed.variable} ${playfairDisplay.variable} ${jetbrainsMono.variable} ${dmSans.variable} ${spaceMono.variable}`}
+      suppressHydrationWarning
     >
-      <body>{children}</body>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
