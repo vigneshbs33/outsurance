@@ -1,0 +1,77 @@
+// Paste this into eraser.io → Diagram → Cloud Architecture Diagram
+
+colorMode pastel
+styleMode shadow
+
+// Client layer
+Browser [icon: monitor, color: blue] {
+  Landing [icon: home, label: "Landing + Auth Pages\n/, /login, /register"]
+  Assessment [icon: clipboard, label: "5-Step Assessment Flow\n/about-you → health → upload → verify → results"]
+  Dashboard [icon: layout, label: "Dashboard\nRisk card + Top recommendations"]
+  Explorer [icon: search, label: "Plan Explorer + Detail\n/explorer, /explorer/[id]"]
+  SavedProfile [icon: bookmark, label: "Saved Plans + Profile\n/saved, /profile"]
+  AgentUX [icon: message-circle, label: "Advisor Chat + Compare Drawer\n+ Stress Test Modal"]
+  LocalParsing [icon: file-text, label: "Browser-side report parsing\nPDF/image text prepared before API calls"]
+}
+
+// API layer
+Backend [icon: server, color: orange] {
+  FastAPI [icon: zap, label: "FastAPI + Uvicorn\n/api/* on :8000"]
+  JWT [icon: shield, label: "Supabase JWT verifier\nsoft-fail demo mode supported"]
+
+  Endpoints [icon: route, label: "Core endpoints\n/health /plans /assess /extract\n/agent /chat /stress-test /predict-scenario"]
+
+  MLPipeline [icon: cpu, label: "3-Stage Recommendation Pipeline"] {
+    XGBoost [icon: bar-chart-2, label: "Stage 1: XGBoost\nRisk tier + confidence\nFeature-importance explanation"]
+    Suitability [icon: sliders, label: "Stage 2: Weighted scorer\nBudget, condition, age, coverage\nSuitability score 0-10"]
+    Cosine [icon: git-merge, label: "Stage 3: Cosine similarity\nUser vector vs ideal plan vector\nFinal ranking"]
+    Flags [icon: alert-triangle, label: "Post-score warning flags\nWaiting periods, co-pay, exclusions"]
+  }
+
+  Agent [icon: bot, label: "Agent orchestrator\nreassess, budget_sim, stress_test,\ncompare, explain_risk, plan_info"]
+  Stress [icon: activity, label: "Scenario simulator\nOut-of-pocket estimate engine"]
+  PlansCatalog [icon: database, label: "plans_db.py\n154 Indian insurance plans\nIn-memory catalog"]
+}
+
+// External AI providers
+AIProviders [icon: cloud, color: purple] {
+  OpenAI [icon: sparkles, label: "OpenAI GPT-4o\nPrimary explanations + chat"]
+  Gemini [icon: sparkles, label: "Gemini 2.5 Flash\nFallback provider"]
+}
+
+// Persistence layer
+Supabase [icon: database, color: green] {
+  Auth [icon: lock, label: "Supabase Auth\nJWT sessions"]
+  Postgres [icon: database, label: "PostgreSQL"]
+  RLS [icon: shield-check, label: "Row-Level Security\nPer-user data isolation"]
+  Tables [icon: grid, label: "profiles\nassessment_sessions\nrecommendations\nsaved_plans"]
+}
+
+// Main flows
+Browser.Landing --> Supabase.Auth: sign up / login
+Browser.Assessment --> Browser.LocalParsing: upload PDF or image
+Browser.LocalParsing --> Backend.Endpoints: POST /extract with raw text
+Browser.Assessment --> Backend.FastAPI: POST /assess with JWT
+Browser.Dashboard --> Backend.FastAPI: recommendations + risk view
+Browser.Explorer --> Backend.FastAPI: GET /plans
+Browser.AgentUX --> Backend.Agent: POST /agent
+Browser.AgentUX --> Backend.Stress: POST /stress-test
+Browser.SavedProfile --> Supabase.Postgres: save bookmarks + profile
+
+// Backend internals
+Backend.FastAPI --> Backend.JWT: verify bearer token
+Backend.FastAPI --> Backend.Endpoints: route request
+Backend.Endpoints --> Backend.MLPipeline.XGBoost: assess health risk
+Backend.MLPipeline.XGBoost --> Backend.MLPipeline.Suitability: risk_tier context
+Backend.MLPipeline.Suitability --> Backend.MLPipeline.Cosine: scored plans
+Backend.MLPipeline.Cosine --> Backend.MLPipeline.Flags: enrich alerts
+Backend.Endpoints --> Backend.PlansCatalog: load plan metadata
+Backend.Agent --> Backend.MLPipeline.XGBoost: re-assess user changes
+Backend.Agent --> Backend.Stress: simulate emergencies
+
+// AI + storage
+Backend.Endpoints --> AIProviders.OpenAI: generate explanations/chat
+AIProviders.OpenAI --> AIProviders.Gemini: fallback on failure
+Backend.FastAPI --> Supabase.Postgres: persist sessions + recommendations
+Supabase.Auth --> Supabase.RLS: enforce row ownership
+Supabase.RLS --> Supabase.Tables: protect table access

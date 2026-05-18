@@ -1,11 +1,15 @@
-# Fidsurance
+# Outsurance
 
-Welcome to **Fidsurance** — an AI-driven, privacy-first insurance recommendation platform.
+![Outsurance](frontend/public/fidsurance-logo.png)
+
+**Outsurance** — an AI-driven, privacy-first insurance recommendation platform built for the Fidelity Hackathon 2026.
 
 This project consists of:
 1. **FastAPI Backend (Python)**: Houses the 3-stage ML pipeline (XGBoost + Weighted Scorer + Cosine Similarity) and the Gemma local LLM agent.
-2. **Expo React Native Frontend (JavaScript)**: The mobile-first UI for health assessments and AI chat.
+2. **Next.js 16 Frontend (TypeScript)**: The web-first UI for health assessments, plan discovery, and AI chat — built with Tailwind CSS v4, GSAP, and Framer Motion.
 3. **Raspberry Pi Fallback**: A secure, isolated kiosk module.
+
+---
 
 ## 🚀 How to Run the Project
 
@@ -24,22 +28,22 @@ pip install -r requirements.txt
 # Start the server
 uvicorn app.main:app --reload --port 8000
 ```
-> The API will be available at `http://localhost:8000`. 
+> The API will be available at `http://localhost:8000`.
 > Swagger UI documentation is at `http://localhost:8000/docs`.
 
 ### 2. Start the Frontend (UI)
-The frontend is a React Native app built with Expo and NativeWind (Tailwind).
+The frontend is a Next.js 16 app with TypeScript and Tailwind CSS v4.
 ```bash
 cd frontend
 
 # Install dependencies
 npm install
 
-# Start the Expo development server
-npx expo start
+# Start the Next.js development server
+npm run dev
 ```
-> Use the **Expo Go** app on your phone to scan the QR code, or press `w` in the terminal to run it in a web browser.
-> Ensure your phone/emulator and the backend server are on the same network!
+> Open **http://localhost:3000** in your browser.
+> Make sure the backend server is also running at port 8000.
 
 ---
 
@@ -64,8 +68,8 @@ POST /api/agent
     { "role": "user", "content": "What if I also have kidney disease?" }
   ],
   "session": {
-    "profile":       { "age": 35, "hba1c": 6.8, "monthly_budget": 1200, ... },
-    "risk_data":     { "risk_tier": "High", "confidence_pct": 74, ... },
+    "profile":       { "age": 35, "hba1c": 6.8, "monthly_budget": 1200 },
+    "risk_data":     { "risk_tier": "High", "confidence_pct": 74 },
     "current_plans": [ ... ]
   }
 }
@@ -84,7 +88,7 @@ Response:
 ---
 
 ## 📂 Key Files
-- `Fidsurance_Master_Plan.md` — Complete architectural blueprint, ML metrics, and agent design.
+- `Outsurance_Master_Plan.md` — Complete architectural blueprint, ML metrics, and agent design.
 - `ML_Details.md` — XGBoost training pipeline and synthetic dataset details.
 - `UI_Context.md` — Frontend context for UI/UX engineers.
 

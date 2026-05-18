@@ -56,7 +56,7 @@ export default function PlanDetailScreen({ navigation, route }) {
         
         {/* Match Score */}
         <View className="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-[#E0E0E0] items-center">
-          <Text className="text-[#757575] font-bold mb-2 uppercase">Fidsurance Match Score</Text>
+          <Text className="text-[#757575] font-bold mb-2 uppercase">Outsurance Match Score</Text>
           <View className="w-20 h-20 bg-[#E8F5E9] rounded-full justify-center items-center border-4 border-[#4CAF50] mb-2">
             <Text className="text-[#1B5E20] font-bold text-3xl">{plan.suitability_score}</Text>
           </View>

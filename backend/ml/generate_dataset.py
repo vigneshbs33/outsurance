@@ -1,5 +1,5 @@
 """
-FIDSURANCE — Dataset Generator
+OUTSURANCE — Dataset Generator
 Generates 20,000 synthetic health records based on Indian population epidemiology.
 Merges with UCI + Kaggle public datasets for realistic training data.
 

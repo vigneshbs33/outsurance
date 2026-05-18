@@ -1,0 +1,77 @@
+// Paste this into eraser.io → Diagram → Entity Relationship Diagram
+
+erDiagram
+    profiles {
+        uuid id PK
+        string full_name
+        string city
+        timestamp created_at
+    }
+
+    assessment_sessions {
+        uuid id PK
+        uuid user_id FK
+        int age
+        float bmi
+        float hba1c
+        int bp_systolic
+        boolean smoker
+        boolean has_diabetes
+        boolean has_hypertension
+        int chronic_count
+        int monthly_budget
+        float income_lakh
+        string coverage_for
+        int family_members
+        string risk_tier
+        float risk_score
+        float confidence_pct
+        timestamp created_at
+    }
+
+    recommendations {
+        uuid id PK
+        uuid assessment_id FK
+        jsonb top_plan_ids
+        float match_score
+        float suitability_score
+        float cosine_similarity_score
+        text plain_english_explanation
+        timestamp created_at
+    }
+
+    plan_bookmarks {
+        uuid id PK
+        uuid user_id FK
+        int plan_id
+        timestamp bookmarked_at
+    }
+
+    chat_messages {
+        uuid id PK
+        uuid assessment_id FK
+        uuid user_id FK
+        string role
+        text content
+        string tool_used
+        timestamp created_at
+    }
+
+    stress_test_results {
+        uuid id PK
+        uuid user_id FK
+        int plan_id
+        string scenario_name
+        int total_cost
+        int covered_amount
+        int out_of_pocket
+        string verdict
+        timestamp created_at
+    }
+
+    profiles ||--o{ assessment_sessions : "has"
+    assessment_sessions ||--o{ recommendations : "produces"
+    profiles ||--o{ plan_bookmarks : "saves"
+    assessment_sessions ||--o{ chat_messages : "contains"
+    profiles ||--o{ stress_test_results : "runs"
+    profiles ||--o{ chat_messages : "writes"

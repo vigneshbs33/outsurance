@@ -1,5 +1,7 @@
-# FIDSURANCE — Master Architecture & Flow Plan
+# OUTSURANCE — Master Architecture & Flow Plan
 ### Fidelity Hackathon 2026 | FinTech / HealthTech / AI-ML
+
+![Outsurance](frontend/public/fidsurance-logo.png)
 > **FINAL BUILD — All systems implemented and tested.**
 
 ---
@@ -12,7 +14,7 @@
 
 ## The Three Key Differences From Every Other Team
 
-| Other teams | Fidsurance |
+| Other teams | Outsurance |
 |---|---|
 | Send PDF to cloud AI (ChatGPT / Gemini API) | Gemma runs **on your GPU via FastAPI** — raw document never leaves the user's network |
 | Score health risk, then filter plans by price | **3-stage ML pipeline**: XGBoost classifies risk → weighted scorer evaluates 6 factors → KNN cosine similarity blends in data-driven matching |
@@ -123,7 +125,7 @@ Rules dominate (60%) to enforce hard constraints. Similarity adds data-driven nu
          ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ STEP 2 — HEALTH AGENT SCREEN (Step 3)                           │
-│ Tool: expo-document-picker + expo-image-picker                  │
+│ Tool: Native file input + pdfjs-dist (browser-native)           │
 │                                                                 │
 │ User can:                                                       │
 │  [A] Upload PDF → pdfjs-dist extracts text ON DEVICE           │
@@ -198,9 +200,9 @@ Rules dominate (60%) to enforce hard constraints. Similarity adds data-driven nu
 | Layer | Tool | Status |
 |---|---|---|
 | Auth | Supabase Auth + JWT | ✅ Done |
-| Frontend | React Native + Expo + NativeWind | ✅ Done |
-| PDF Upload | expo-document-picker | ✅ Done |
-| Photo/Image Upload | expo-image-picker | ✅ Done |
+| Frontend | Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 | ✅ Done |
+| PDF Upload | Native browser `<input type="file">` + pdfjs-dist | ✅ Done |
+| Photo/Image Upload | Native browser `<input type="file" accept="image/*">` | ✅ Done |
 | PDF Extraction (on-device) | pdfjs-dist | ✅ Done |
 | Image OCR | Gemma 3 1B via /api/extract | ✅ Done |
 | Health Agent Chat (Step 3) | Gemma 3 1B | ✅ Done |
@@ -214,7 +216,7 @@ Rules dominate (60%) to enforce hard constraints. Similarity adds data-driven nu
 | API Server | FastAPI + Uvicorn | ✅ Done |
 | LLM Runtime | HuggingFace Transformers (local GPU) | ✅ Done |
 | Database | Supabase (PostgreSQL) | ✅ Done |
-| Plan Comparison | CompareScreen.js (up to 3) | ✅ Done |
+| Plan Comparison | CompareDrawer.tsx (up to 3) | ✅ Done |
 | Raspberry Pi Kiosk | Secure hospital kiosk vision | 📋 Planned |
 
 ---
@@ -247,7 +249,7 @@ Rules dominate (60%) to enforce hard constraints. Similarity adds data-driven nu
 |---|---|---|
 | Secure JWT login | Supabase Auth | ✅ |
 | Multi-step intake form | Steps 1–4 | ✅ |
-| AI extraction from clinical documents | pdfjs-dist + expo-image-picker + Gemma | ✅ |
+| AI extraction from clinical documents | pdfjs-dist (browser) + file input + Gemma | ✅ |
 | Trained ML model (classification) | XGBoost — 87.1% accuracy, 100k training rows | ✅ |
 | Scoring system | Weighted 5-factor scorer (Stage 2) | ✅ |
 | Similarity-based recommendation | Cosine similarity KNN ranker (Stage 3) | ✅ |
@@ -255,7 +257,7 @@ Rules dominate (60%) to enforce hard constraints. Similarity adds data-driven nu
 | Plan listing with filters | PlanExplorerScreen | ✅ |
 | Side-by-side comparison (up to 3) | CompareScreen.js | ✅ |
 | Privacy controls | On-device extraction, vitals deleted after assess | ✅ |
-| Responsive UI (mobile + web) | Expo web support + NativeWind | ✅ |
+| Responsive UI (mobile + web) | Next.js 16 + Tailwind CSS v4 + GSAP + Framer Motion | ✅ |
 | Chatbot guiding users | Master Orchestration Agent — 6 tools, full pipeline access | ✅ |
 | 15–20 insurance plans | 20 plans including Family Floaters | ✅ |
 | Stress Test Simulator | 7 scenarios, room-rent penalty, verdict rating | ✅ |
@@ -335,8 +337,32 @@ Triggers on: "tell me more about plan 2", "what are the exclusions for..."
 
 ## 5 USPs That Win
 
-### USP 1 — Privacy-First Edge Architecture
-Raw lab report never hits the cloud. pdfjs-dist reads PDFs on-device. Only 10 numeric values sent to the server. Verifiable: open browser network monitor — no PDF bytes in transit.
+### USP 1 — Privacy-First Architecture (Three Verifiable Layers)
+
+Most teams will send a lab report to ChatGPT or Gemini. We do not. Every layer of our stack was designed so that a judge can **verify the privacy claim live** — not just read it on a slide.
+
+**Layer 1 — Device (pdfjs-dist)**
+The PDF is parsed by `pdfjs-dist` entirely in JavaScript memory in the browser. The raw document bytes are never placed in a `fetch()` body, FormData, or any outbound request. A judge can open DevTools → Network tab during the upload step and confirm: zero document bytes, zero file name, zero patient name in any outbound request. Only 10 numbers leave the browser.
+
+**Layer 2 — Gemma 3 1B (Local GPU, Not a Cloud API)**
+When a user uploads a photo of a lab report (image OCR), the extraction runs on our team's local GPU via HuggingFace Transformers — not via OpenAI, Gemini API, or any third-party cloud LLM. The raw image is sent only to our own `/api/extract` endpoint, which runs Gemma 3 1B locally, extracts the 3 numeric values (HbA1c, BP, BMI), and discards the image immediately after. No photo is stored. No third-party AI ever sees the user's medical document. This is materially different from every team that calls `openai.chat.completions.create()` with a base64 image — their user's medical data is now in OpenAI's logs. Ours is not.
+
+**Layer 3 — Supabase (Row-Level Security, Not Application-Level Access Control)**
+Most teams using Supabase just add a `WHERE user_id = auth.uid()` in their frontend query and call it "secure." We enforce security at the database layer using PostgreSQL Row-Level Security (RLS). Every table (`assessments`, `recommendations`, `plan_bookmarks`, `chat_messages`) has RLS policies that reject queries for rows that don't belong to the authenticated JWT — even if a developer accidentally writes a query without a WHERE clause, even if the API is compromised, the database itself refuses to return another user's data. The JWT is verified by Supabase's Auth server (HS256), auto-refreshed, and verified on every protected FastAPI endpoint before the ML pipeline runs.
+
+**What we store vs. what we don't:**
+
+| Data | Stored? | Where |
+|---|---|---|
+| Raw PDF document | ❌ Never | Stays in browser memory only |
+| Lab report photo | ❌ Deleted after OCR | Never persisted |
+| Patient name | ❌ Never | Not collected |
+| HbA1c / BP / BMI raw values | ❌ Deleted after `/api/assess` returns | Ephemeral only |
+| Risk tier + risk score | ✅ Yes | Supabase `assessments` table, JWT-protected, RLS |
+| Plan recommendations | ✅ Yes | Supabase `recommendations` table, RLS |
+| Saved plan IDs | ✅ Yes | Supabase `plan_bookmarks`, RLS |
+
+**The verifiable demo moment:** During the live demo, open browser DevTools → Network → click "Find My Plans" → every judge can see the request body contains only 10 numbers. No name. No document. No image. This one 30-second demo moment wins the privacy argument more convincingly than any number of architecture slides.
 
 ### USP 2 — 3-Stage ML Pipeline (Classification + Scoring + Similarity)
 The only team that uses all three approaches the PS mentions. Each stage is visible in the API response with per-factor breakdowns.
@@ -364,9 +390,11 @@ python -m ml.generate_dataset   # generates 100,000 training rows
 python -m ml.train_model         # trains XGBoost (87.1% acc), ~90s
 uvicorn app.main:app --reload --port 8000
 
-# Frontend (React Native)
+# Frontend (Next.js)
 cd frontend
-npx expo start
+npm install
+npm run dev
+# Open http://localhost:3000 in your browser
 ```
 
 ---
@@ -374,19 +402,21 @@ npx expo start
 ## File Structure
 
 ```
-Fidsurance/
+Outsurance/
 ├── ML_Details.md                 ← ML strategy & design doc
 ├── Fidsurance_Master_Plan.md     ← This file (full architecture)
+├── UI_Context.md                 ← Frontend context for engineers
 ├── problemstatement.txt          ← Original PS
 ├── supabase_setup.sql            ← DB schema
 ├── backend/
-│   ├── requirements.txt          ← fastapi, xgboost, transformers, shap...
+│   ├── requirements.txt          ← fastapi, xgboost, transformers...
 │   ├── app/
 │   │   ├── main.py               ← FastAPI, 3-stage pipeline wired
 │   │   ├── scorer.py             ← Stage 2 + Stage 3 engine
-│   │   ├── plans_db.py           ← 15 insurance plans with ideal_vectors
+│   │   ├── plans_db.py           ← 20 insurance plans with ideal_vectors
 │   │   ├── llm_service.py        ← Gemma 3 1B via HuggingFace
-│   │   └── agent.py              ← Extraction agent logic
+│   │   ├── agent.py              ← Master Orchestration Agent (6 tools)
+│   │   └── stress_test.py        ← 7 emergency scenarios
 │   └── ml/
 │       ├── generate_dataset.py   ← 100k synthetic rows (Indian epidemiology)
 │       ├── train_model.py        ← XGBoost training pipeline
@@ -394,18 +424,36 @@ Fidsurance/
 │       ├── risk_model.json       ← Trained XGBoost weights
 │       ├── label_encoder.pkl     ← Risk tier label encoder
 │       └── model_metrics.json    ← Accuracy: 87.1%, F1: 0.8710
-└── frontend/
+└── frontend/                     ← Next.js 16 web app
+    ├── next.config.ts
+    ├── tailwind.config.ts
+    ├── tsconfig.json
     └── src/
-        ├── screens/
-        │   ├── assessment/
-        │   │   ├── Step3Screen.js  ← Health agent + PDF/photo upload
-        │   │   └── Step4Screen.js  ← Verify vitals, privacy screen
-        │   └── main/
-        │       ├── DashboardScreen.js   ← Risk card + match scores + agent chat
-        │       ├── PlanExplorerScreen.js ← Filter + compare
-        │       └── CompareScreen.js     ← Side-by-side up to 3
-        └── api/
-            ├── backend.js         ← assessHealthProfile()
-            ├── onDeviceAI.js      ← processLabReport(), generateReasoning()
-            └── supabase.js        ← Auth + data persistence
+        ├── app/                  ← Next.js App Router pages
+        │   ├── page.tsx          ← Landing page (GSAP, cinematic loader)
+        │   ├── layout.tsx        ← Root layout
+        │   ├── globals.css       ← Tailwind + CSS variables
+        │   ├── login/page.tsx    ← Login (AuthSplitLayout)
+        │   ├── register/page.tsx ← Signup (AuthSplitLayout)
+        │   ├── assessment/page.tsx ← 5-step health intake wizard
+        │   ├── dashboard/page.tsx  ← Risk card + plan recommendations
+        │   ├── explorer/page.tsx   ← Plan listing with filters
+        │   ├── explorer/[id]/page.tsx ← Plan detail + stress test
+        │   ├── saved/page.tsx      ← Bookmarked plans
+        │   └── profile/page.tsx    ← Account management
+        ├── components/
+        │   ├── AuthSplitLayout.tsx ← Login/register two-panel layout
+        │   ├── Sidebar.tsx         ← Navigation sidebar + mobile drawer
+        │   ├── StressTestModal.tsx ← Emergency cost calculator
+        │   ├── CompareDrawer.tsx   ← Side-by-side plan comparison
+        │   └── editorial.tsx       ← Shared UI primitives
+        ├── lib/
+        │   ├── api.ts              ← Backend API client functions
+        │   ├── supabase.ts         ← Supabase auth + DB queries
+        │   ├── compare.ts          ← Plan comparison state (localStorage)
+        │   └── utils.ts            ← Misc utilities
+        ├── data/
+        │   └── landing.data.ts     ← Landing page copy & annotations
+        └── enums/
+            └── landing.enum.ts     ← Brand constants (BRAND_NAME, TAGLINE)
 ```

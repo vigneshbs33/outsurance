@@ -27,7 +27,7 @@ export default function Step3Screen({ navigation, route }) {
       setMessages([{
         id: 1,
         sender: 'ai',
-        text: "Hello! I'm your Fidsurance health agent. I'll help read your lab report and fill in your health profile automatically.\n\nYou can:\n• Upload a PDF or Photo of your lab report using the 📎 button\n• Or just type your values directly\n\nEither way, I'll ask about anything that's missing. Shall we start?"
+        text: "Hello! I'm your Outsurance health agent. I'll help read your lab report and fill in your health profile automatically.\n\nYou can:\n• Upload a PDF or Photo of your lab report using the 📎 button\n• Or just type your values directly\n\nEither way, I'll ask about anything that's missing. Shall we start?"
       }]);
     }, 1000);
   }, []);

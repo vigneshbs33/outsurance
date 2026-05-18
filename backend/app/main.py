@@ -11,17 +11,22 @@ from typing import List, Optional, Dict, Any
 
 load_dotenv()
 
+# Outsurance FastAPI Server Reload Trigger - OpenAI Production Mode
 from .plans_db import INSURANCE_PLANS
 from .scorer import rank_plans
 from .llm_service import load_model, generate_text
 from .stress_test import simulate
 from .agent import run_agent
 
-app = FastAPI(title="Fidsurance API", version="2.0")
+app = FastAPI(title="Outsurance API", version="2.0")
+
+_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ORIGINS", "http://localhost:3000"
+).split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -85,7 +90,9 @@ def startup_event():
 
 
 # ─── JWT Helper ───────────────────────────────────────────────────────────────
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "your-jwt-secret")
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+if not SUPABASE_JWT_SECRET:
+    print("[WARN] SUPABASE_JWT_SECRET not set — JWT validation disabled (demo mode)")
 
 def verify_jwt(request: Request) -> Optional[dict]:
     auth = request.headers.get("Authorization", "")
@@ -223,14 +230,14 @@ def assess_user(profile: UserProfile, request: Request):
 
     # Stage 1: XGBoost Risk Classification
     risk_tier, risk_score, shap_explanation = assess_risk(profile)
-    print(f"  → risk_tier={risk_tier}  risk_score={risk_score:.3f}")
+    print(f"  -> risk_tier={risk_tier}  risk_score={risk_score:.3f}")
 
     # Build user dict for scorer
     user_dict = profile.dict()
     user_dict['risk_tier']       = risk_tier
     user_dict['risk_score']      = risk_score
-    user_dict['has_diabetes']    = bool(profile.diabetes or profile.has_diabetes)
-    user_dict['has_hypertension']= bool(profile.hypertension or profile.has_hypertension)
+    user_dict['has_diabetes']    = int(bool(profile.diabetes or profile.has_diabetes))
+    user_dict['has_hypertension']= int(bool(profile.hypertension or profile.has_hypertension))
 
     # Stages 2 + 3: Rank plans
     top_plans = rank_plans(INSURANCE_PLANS, user_dict)
@@ -243,7 +250,7 @@ def assess_user(profile: UserProfile, request: Request):
         cond_str = cond_str.rstrip(", ") or "no major pre-existing conditions"
 
         sys_prompt = (
-            "You are Fidsurance's AI health advisor. Write a warm, clear 2-sentence explanation "
+            "You are Outsurance's AI health advisor. Write a warm, clear 2-sentence explanation "
             "of why this insurance plan is a good match for this user. Be specific about their health data."
         )
         user_prompt = (
@@ -255,7 +262,8 @@ def assess_user(profile: UserProfile, request: Request):
         try:
             explanation = generate_text(sys_prompt, user_prompt, max_tokens=80)
             plan['plain_english_explanation'] = explanation
-        except Exception:
+        except Exception as e:
+            print(f"[WARN] Gemma explanation failed for plan {plan.get('id')}: {e}")
             plan['plain_english_explanation'] = (
                 f"This {plan['type']} plan scored {plan['suitability_score']}/10 for your profile, "
                 f"offering good coverage for your age and health conditions."
@@ -333,6 +341,50 @@ def run_stress_test(req: StressTestRequest):
     return result
 
 
+class PredictScenarioRequest(BaseModel):
+    scenario_name: str
+
+@app.post("/api/predict-scenario")
+def predict_scenario_details(req: PredictScenarioRequest):
+    sys_prompt = (
+        "You are a medical pricing estimator. Given a medical scenario name, "
+        "estimate: 1. the typical total hospital cost in INR (rupees), "
+        "2. the typical length of stay in days, and "
+        "3. whether it is a pre-existing chronic condition (true/false). "
+        "Return ONLY a clean JSON object, no explanation, no markdown backticks, like: "
+        "{\"cost\": 350000, \"days\": 4, \"isChronic\": false}"
+    )
+    user_prompt = f"Estimate medical details for: {req.scenario_name}"
+    try:
+        response_text = generate_text(sys_prompt, user_prompt, max_tokens=100)
+        cleaned = response_text.replace("```json", "").replace("```", "").strip()
+        import json
+        data = json.loads(cleaned)
+        return {
+            "cost": int(data.get("cost", 300000)),
+            "days": int(data.get("days", 3)),
+            "isChronic": bool(data.get("isChronic", False))
+        }
+    except Exception as e:
+        print(f"Error predicting scenario: {e}")
+        name = req.scenario_name.lower()
+        cost = 300000
+        days = 3
+        is_chronic = False
+        if "cancer" in name or "chemo" in name:
+            cost = 600000
+            days = 5
+            is_chronic = True
+        elif "heart" in name or "cardiac" in name or "stroke" in name:
+            cost = 500000
+            days = 4
+            is_chronic = True
+        elif "bone" in name or "fracture" in name or "knee" in name:
+            cost = 250000
+            days = 3
+        return {"cost": cost, "days": days, "isChronic": is_chronic}
+
+
 @app.post("/api/extract")
 def extract_health_metrics(req: ExtractionRequest):
     """
@@ -346,7 +398,12 @@ def extract_health_metrics(req: ExtractionRequest):
         "If any are missing, return a friendly message asking the user to provide them. "
         "Do NOT use markdown code blocks."
     )
-    content = req.raw_text or "[Image uploaded — please extract health values]"
+    if req.raw_text:
+        content = req.raw_text
+    elif req.image_base64:
+        content = f"[Base64 image data provided — length: {len(req.image_base64)} chars. Extract health values from this medical image.]"
+    else:
+        content = "[No content provided]"
     user_prompt = f"Extract from this lab report:\n{content}"
     result = generate_text(sys_prompt, user_prompt, max_tokens=120)
     return {"extracted_result": result}
@@ -358,7 +415,7 @@ def chat_agent(req: ChatRequest):
     Continuous agent chat. Knows the user's vitals and chat history.
     """
     sys_prompt = (
-        "You are Fidsurance's AI health advisor. You help users understand their insurance "
+        "You are Outsurance's AI health advisor. You help users understand their insurance "
         "recommendations, answer questions about their health risk, and explain plan features. "
         "Be brief (2-3 sentences), warm, and jargon-free. "
         "If the user describes a new condition, acknowledge it and suggest they re-run the assessment."

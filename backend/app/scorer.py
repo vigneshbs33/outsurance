@@ -1,5 +1,5 @@
 """
-FIDSURANCE — 3-Stage Plan Scoring Engine
+OUTSURANCE — 3-Stage Plan Scoring Engine
 Stage 1 output (risk_tier) feeds into Stage 2 (weighted suitability scorer)
 which feeds into Stage 3 (cosine similarity ranker) for the final combined score.
 """

@@ -1,5 +1,4 @@
 # Fidelity Hackathon 2026 — Synopsis Submission
-## Team: Fidsurance
 
 ---
 
@@ -9,16 +8,14 @@
 |---|---|
 | **Team Name** | Fidsurance |
 | **Problem Statement Chosen** | Smart Insurance Recommendation Platform |
-| **Track** | FinTech / HealthTech / AI-ML |
-| **Team Size** | 4 Members |
-| **Submission Date** | _(fill in)_ |
+| **Submission Date** | May 2026 |
 
 | # | Full Name | Role / Responsibility |
 |---|---|---|
-| 1 | Vignesh B S | Full-Stack Lead — Backend ML pipeline, FastAPI, React Native |
-| 2 | _(fill in)_ | ML Engineer — XGBoost training, dataset generation |
-| 3 | _(fill in)_ | Frontend Engineer — React Native UI, Expo, NativeWind |
-| 4 | _(fill in)_ | AI / LLM Integration — Gemma 3 1B, extraction agent |
+| 1 | Vignesh B S | Full-Stack Lead — FastAPI backend, ML pipeline, system architecture |
+| 2 | _(fill in)_ | ML Engineer — XGBoost training, dataset curation |
+| 3 | Ishaan | Frontend Engineer — Next.js, TypeScript, Tailwind CSS v4 |
+| 4 | _(fill in)_ | AI / LLM Integration — OpenAI GPT-4o, Gemini fallback, agent orchestration |
 
 ---
 
@@ -26,21 +23,17 @@
 
 ### 1.1 What did you understand from the problem statement?
 
-India is home to over 500 million working-age adults, yet a large proportion remain uninsured or locked into plans that do not match their actual health profile. The existing route to insurance is broken: a person with Type 2 diabetes must visit three or four insurer portals, fill near-identical forms, and decode clauses like "pre-existing disease waiting period" or "sub-limit on room rent" — without ever knowing whether the plan actually covers their condition from Day 1 or makes them wait four years.
-
-The problem is not a shortage of insurance products. India has 15+ major health insurers with hundreds of plan variants. The problem is the **matching layer** — there is no intelligent system that takes a person's real health data, runs it through clinically meaningful models, and returns a short, ranked list with plain-English reasoning: *"This plan is recommended because your HbA1c of 6.8% indicates pre-diabetic risk and it provides Day 1 diabetes cover without a waiting period."*
-
-We must build that matching layer: a full-stack platform that collects health, demographic, and financial data; trains machine learning models on real healthcare datasets; and delivers explainable, personalised insurance recommendations through a clean mobile interface — while keeping sensitive medical documents private on the user's device.
+Millions of Indians remain uninsured or locked into plans that do not suit their actual health profile. Buying insurance today means visiting multiple insurer portals, filling repetitive forms, and decoding jargon like "pre-existing disease waiting period" or "room rent sub-limit" — with no personalised guidance whatsoever. The core gap is not a lack of products; India has 15+ major health insurers with hundreds of plan variants. The real gap is the intelligent matching layer that does not exist: a system that takes a person's real health data, processes it through trained ML models, and returns a ranked shortlist with clear, plain-English reasoning — "This plan is recommended because your HbA1c of 6.8% indicates pre-diabetic risk and it provides Day 1 diabetes cover without a waiting period." Beyond recommendations, users need to understand why a plan was suggested and be protected from plans that seem affordable but carry hidden exclusions or waiting periods that render the coverage useless for their specific condition. We must build that matching layer as a full-stack, AI-assisted platform.
 
 ### 1.2 Who are the primary target users?
 
 | User Segment | Description | Key Need |
 |---|---|---|
-| **Middle-income first-time buyer** | Age 25–40, salaried, no prior insurance. Confused by plan jargon. | Simple guided intake, jargon-free explanation of why a plan fits them |
-| **Chronic condition patient** | Diabetic, hypertensive, or multi-condition adult seeking a plan that covers their condition from Day 1 | Accurate condition-matching, clear waiting period and exclusion disclosure |
-| **Family decision-maker** | Age 30–50, looking for a floater policy to cover spouse + children | Family floater vs individual plan comparison, cost-benefit per member |
-| **Senior citizen** | Age 56+, limited digital literacy, needs high coverage + trust | Plain-English output, LIC / known-insurer preference, simplified UI |
-| **Privacy-conscious professional** | Reluctant to upload medical reports to cloud services | On-device PDF extraction, verifiable privacy controls |
+| **Middle-income first-time buyer** | Age 25–40, salaried, no prior insurance, confused by jargon | Simple guided intake; plain-English explanation of why a plan fits |
+| **Chronic condition patient** | Diabetic or hypertensive adult needing Day 1 condition cover | Accurate condition-matching; clear waiting period and exclusion disclosure |
+| **Family decision-maker** | Age 30–50, seeking a floater policy for spouse and children | Family floater vs individual comparison; cost-benefit per member |
+| **Senior citizen** | Age 56+, limited digital literacy, needs high coverage | Simplified UI; well-known insurer preference; jargon-free output |
+| **Privacy-conscious professional** | Reluctant to upload medical data to unknown services | JWT-protected endpoints; Supabase Row-Level Security; data minimisation |
 
 ---
 
@@ -48,91 +41,33 @@ We must build that matching layer: a full-stack platform that collects health, d
 
 ### 2.1 Solution Summary
 
-**Fidsurance** is a privacy-first, AI-powered insurance recommendation platform for the Indian market, built across three deployment surfaces: a mobile app, a cloud backend, and a Raspberry Pi hospital kiosk.
-
-A user completes a guided 5-step intake form capturing demographics, health conditions, and financial constraints — and optionally uploads a clinical lab report (PDF or photo). A local LLM (Gemma 3 1B) extracts HbA1c, blood pressure, and BMI from the document entirely on-device: the raw file never crosses the network. Only 10 numeric values are sent to a FastAPI backend that runs a three-stage ML pipeline — XGBoost health risk classification → weighted 6-factor suitability scoring → cosine similarity KNN ranking — producing a top-5 plan shortlist with a 0–10 match score, a per-factor suitability breakdown, amber warning flags, and a personalised plain-English explanation generated by Gemma.
-
-The user can compare plans side-by-side, simulate the financial impact of 7 emergency scenarios (Cardiac Event, Cancer, ICU, Stroke, and more), drag an Affordability Slider to rerank plans live, or chat with the Master Orchestration Agent — which has 6 tools and can re-run the full ML pipeline, compare plans, or explain risk tier in response to plain English questions. Saved recommendations sync to Supabase and are accessible from a secure Raspberry Pi kiosk installed in hospital waiting areas — bringing personalised insurance advice to the point of care without exposing any medical data on shared hardware.
+**Fidsurance** is a privacy-first, AI-powered insurance recommendation platform for the Indian market. A user completes a guided multi-step intake form capturing demographics, health conditions, and financial constraints, then optionally uploads a clinical lab report — the platform uses AI to extract HbA1c, blood pressure, and BMI, and sends only 10 numeric values to a FastAPI backend running a three-stage ML pipeline (XGBoost risk classification → weighted 6-factor suitability scoring → cosine similarity KNN ranking) that ranks a catalogue of 154 real Indian insurance plans by personalised match score. Each recommendation includes a GPT-4o–generated plain-English explanation, amber warning flags for plan risks, a Buy Plan redirect to the insurer, and access to a persistent conversational AI Agent that can re-run the full pipeline, simulate emergency costs, and compare plans — all from a single dashboard.
 
 ### 2.2 Key Features
 
 | # | Feature Name | Priority | Brief Description |
 |---|---|---|---|
-| 1 | **Secure JWT Authentication** | Must-Have (M) | Supabase Auth with JWT tokens. Login/register with email. Session persists across app restarts. |
-| 2 | **5-Step Guided Intake Form** | Must-Have (M) | Collects demographics (age, gender, city), health conditions (diabetes, hypertension, smoker), financials (income, monthly budget), and family size. Progress bar across all 5 steps. |
-| 3 | **On-Device AI Document Extraction** | Must-Have (M) | User uploads a PDF or photo of a lab report. pdfjs-dist parses PDFs locally; Gemma 3 1B extracts HbA1c, blood pressure, and BMI. Raw document never transmitted to server. |
-| 4 | **Privacy Verification Screen** | Must-Have (M) | Every extracted value shown as an editable field with confidence indicator (green/amber/red). User confirms exactly which 10 numbers are sent. |
-| 5 | **3-Stage ML Pipeline (Stage 1: XGBoost)** | Must-Have (M) | XGBoost classifier trained on 100,000 synthetic + real health records (Indian epidemiology). Outputs risk tier (Low/Medium/High/Critical) and risk score. 87.1% accuracy, 5-fold CV F1: 0.8710. |
-| 6 | **3-Stage ML Pipeline (Stage 2: Weighted Scorer)** | Must-Have (M) | 6-factor suitability engine per plan: Budget Fit (20%), Condition Match (30%), Risk Tier Alignment (15%), Age Eligibility (10%), Coverage Adequacy (10%), Family Fit (15%). Returns 0–10 score with per-factor breakdown. |
-| 7 | **3-Stage ML Pipeline (Stage 3: Cosine Similarity)** | Must-Have (M) | KNN cosine similarity between 10D user profile vector and each plan's ideal_vector. Blended 60% suitability + 40% similarity for the final match score. |
-| 8 | **Explainable Risk Card** | Must-Have (M) | Dashboard shows XGBoost feature importances as a colour-coded bar chart. User sees exactly which health factors drove their risk tier (e.g., "HbA1c contributes 31% to your High risk classification"). |
-| 9 | **Top-5 Plan Recommendations** | Must-Have (M) | Each plan card shows: insurer, type badge, match score, annual premium, coverage amount, Day 1 badges, and a Gemma-generated 2-sentence plain-English explanation personalised to this user's data. |
-| 10 | **Plan Explorer with Filters** | Must-Have (M) | Full plan listing filterable by price range, coverage type (Basic/Standard/Comprehensive/Senior/Critical Illness/Family Floater), and insurer. 20 plans across all categories. |
-| 11 | **Side-by-Side Plan Comparison** | Must-Have (M) | Select up to 3 plans. CompareScreen renders a feature table covering co-payment, room rent limit, waiting period, Day 1 covers, claim settlement ratio, exclusions, pros, and cons. |
-| 12 | **Affordability Simulator** | Good-to-Have (G) | Budget slider on the Dashboard dynamically re-calls /api/assess with updated budget and re-ranks plans in real time. Shows how changing ₹500/month changes recommendations. |
-| 13 | **Stress Test Simulator** | Good-to-Have (G) | 7 emergency scenarios: Cardiac Event, 5-Day ICU, Cancer Chemotherapy, Stroke + Rehab, Knee Replacement, Appendix Surgery, Diabetic Emergency. Calculates room-rent penalty, co-payment, and out-of-pocket with a plain-English verdict. |
-| 14 | **Continuous AI Agent Chat** | Good-to-Have (G) | Master Orchestration Agent with 6 tools. "What if I also have kidney disease?" → re-runs full 3-stage pipeline live. "Compare plan 3 and plan 9" → 14-field table. "Why am I High risk?" → feature-importance explanation. Session state persists across the whole conversation. |
-| 15 | **Warning Flags per Plan** | Good-to-Have (G) | Up to 3 amber badges per plan card: "4-yr wait for diabetes cover", "20% co-payment on all claims", "Coverage below 1× annual income". Generated automatically from the scoring engine. |
-| 16 | **Privacy Controls** | Must-Have (M) | On-device PDF/image extraction via pdfjs-dist + Gemma. Zero raw medical documents transmitted. Only 10 numeric values cross the network. All API routes JWT-protected. Supabase Row-Level Security enforced at the DB layer. |
-| 17 | **Responsive Mobile UI** | Must-Have (M) | React Native + Expo. Runs on Android, iOS, and Expo Web. NativeWind for consistent styling across platforms. |
-| 18 | **Raspberry Pi Hospital Kiosk** | Good-to-Have (G) | Secure read-only kiosk deployed in hospital waiting areas. Patient logs in with their Supabase JWT and views their saved plan recommendations — no vitals, no documents, no ML pipeline on shared hardware. Brings personalised insurance advice to the point of care. |
+| 1 | Secure JWT Authentication | M | Supabase Auth with JWT tokens. Email login/register. Session persists across restarts. |
+| 2 | Multi-Step Guided Intake Form | M | Collects demographics, health conditions (diabetes, hypertension, smoker), financials, and family size with a progress bar. |
+| 3 | AI Document Extraction | M | User uploads a PDF or photo of a lab report. AI extracts HbA1c, BP, and BMI. Raw document not stored on server. |
+| 4 | Privacy Verification Screen | M | All 10 extracted values shown as editable fields with confidence indicators before any data is transmitted. |
+| 5 | 3-Stage ML Pipeline — XGBoost Classifier | M | Trained on 100,000 synthetic + real health records. Outputs risk tier (Low/Medium/High/Critical) and score. 87.1% accuracy, F1: 0.8710. |
+| 6 | 3-Stage ML Pipeline — Weighted Suitability Scorer | M | 6-factor scoring per plan: Budget Fit (20%), Condition Match (30%), Risk Alignment (15%), Age Gate (10%), Coverage (10%), Family Fit (15%). |
+| 7 | 3-Stage ML Pipeline — Cosine Similarity Ranker | M | KNN cosine similarity between 10D user vector and plan ideal_vector. Final score = 60% suitability + 40% similarity. |
+| 8 | Explainable Risk Card | M | Bar chart of XGBoost feature importances on the dashboard — shows which health factors drove the risk tier with % contributions. |
+| 9 | Top Plan Recommendations (154 plans) | M | Each card shows insurer, match score, premium, coverage, Day 1 badges, warning flags, and a GPT-4o personalised explanation. |
+| 10 | Plan Explorer with Filters | M | Full catalogue filterable by price range, coverage type, and insurer. |
+| 11 | Side-by-Side Plan Comparison | M | Up to 3 plans compared across co-payment, room rent, waiting period, Day 1 covers, claim settlement ratio, exclusions. |
+| 12 | Buy Plan Button | M | Prominent CTA on every plan card redirecting user to the insurer's official portal in a new tab. |
+| 13 | Privacy Controls | M | JWT-protected routes. Supabase RLS at DB layer. Only 10 numeric values cross the network per assessment. |
+| 14 | Responsive Web UI | M | Next.js + TypeScript + Tailwind CSS v4. Fully responsive across mobile, tablet, and desktop. |
+| 15 | Stress Test Emergency Simulator | G | 7 preset + unlimited AI-generated emergency scenarios. Calculates room-rent penalty, co-payment, and out-of-pocket verdict. |
+| 16 | Persistent AI Agent Chatbar | G | Always-visible conversational chatbot. Re-runs ML pipeline, generates custom stress tests, compares plans — all via natural language. Powered by OpenAI GPT-4o with Gemini 2.5 Flash auto-fallback. |
+| 17 | Plan Warning Flags | G | Up to 3 amber badges per card ("4-yr wait for diabetes cover", "20% co-payment") auto-generated by the scoring engine. |
 
 ### 2.3 What makes your solution different or novel?
 
-Fidsurance is built around six distinct differentiators. Each one is independently verifiable during a live demo.
-
----
-
-**USP 1 — Privacy-First Cloud-Edge Architecture**
-
-Most teams will send a lab report to ChatGPT or Gemini. We do not. The PDF is parsed by `pdfjs-dist` entirely in JavaScript memory on the user's device. A photo is sent only for OCR and immediately discarded by the server. Only 10 numeric values ever cross the network. A judge can open the browser's Network Monitor during the demo and verify: zero document bytes in transit. This is not a privacy claim on a slide — it is a verifiable, live architectural fact.
-
----
-
-**USP 2 — The Complete 3-Stage ML Pipeline**
-
-The problem statement explicitly lists three techniques: *"classification models, scoring systems, and similarity-based recommendation engines."* We implement all three in a single stacked pipeline:
-
-- **Stage 1 — XGBoost Classifier:** trained on 100,000 health records (Indian population epidemiology), 87.1% accuracy, 5-fold CV F1: 0.8710. Outputs `risk_tier` (Low / Medium / High / Critical) and a model confidence score.
-- **Stage 2 — Weighted 6-Factor Suitability Scorer:** Budget Fit, Condition Match, Risk Tier Alignment, Age Eligibility, Coverage Adequacy, Family Fit — each with calibrated weights. Hard-gates ineligible plans. Returns a per-factor breakdown for every plan.
-- **Stage 3 — Cosine Similarity KNN Ranker:** matches the user's 10D profile vector against each plan's `ideal_vector`. Blended 60% suitability + 40% similarity into a single 0–10 match score.
-
-Each stage's output is visible in the API response. A judge can inspect every number.
-
----
-
-**USP 3 — Explainable AI (XAI) Directly in the UI**
-
-The Dashboard Risk Card renders a live bar chart of XGBoost feature importances — showing which health factors drove the risk tier with percentage contributions (HbA1c 31%, BMI 18%, Age 12%...). Every plan card carries a Gemma-generated 2-sentence explanation personalised to the user's exact values. Every plan also shows up to 3 amber warning flags auto-generated by the scoring engine — e.g., *"4-yr wait for diabetes cover"* or *"20% co-payment on all claims"* — giving users the kind of specific warnings a human advisor would give. This is not a generic chatbot response; it is ML-driven, per-user, per-plan explainability.
-
----
-
-**USP 4 — Interactive Stress Test Simulator**
-
-Most teams will stop at a recommendation. We go one step further: *"If you had a cardiac emergency, how much would you pay out-of-pocket with this plan?"* The Stress Test Simulator covers 7 real-world emergency scenarios — Cardiac Event (₹5L), Cancer Chemotherapy (₹8L), Stroke + Rehab (₹6L), 5-Day ICU (₹3L), Diabetic Emergency, Knee Replacement, and Appendix Surgery — with realistic 2024 Indian hospital cost estimates. For each scenario, the engine calculates room-rent sub-limit penalties, co-payment deductions, coverage caps, and returns a colour-coded verdict from *"Fully covered"* to *"High financial risk."* This directly answers the question every insurance buyer actually has.
-
----
-
-**USP 5 — Continuous Agentic Orchestration**
-
-After seeing recommendations, the user does not leave. The Master Orchestration Agent (`/api/agent`) has 6 tools wired to the full ML pipeline and responds to natural language:
-
-| What the user says | What fires |
-|---|---|
-| *"What if I also have kidney disease?"* | Parses condition → updates profile → re-runs XGBoost + scorer + cosine → new top-5 |
-| *"What if my budget was ₹800/month?"* | Re-runs scorer only (faster) → new ranking |
-| *"What if I had a cardiac event?"* | Stress test simulation → out-of-pocket verdict |
-| *"Compare plan 3 and plan 9"* | 14-field side-by-side comparison table |
-| *"Why am I High risk?"* | Feature-importance narrative from XGBoost |
-| *"Tell me more about plan 2"* | Full plan detail lookup |
-
-Session state (profile, risk data, current plans) persists across the entire conversation — profile updates from one question carry forward to the next.
-
----
-
-**USP 6 — Raspberry Pi Secure Hospital Kiosk**
-
-Insurance decisions are often made *at* the point of care — in a hospital waiting area or pharmacy. We deploy a Raspberry Pi kiosk at these locations. The patient logs in with their existing Supabase JWT. The kiosk displays their previously saved plan recommendations — match scores, plan names, Day 1 coverage badges — in a clean read-only interface. No vitals are stored on the device. No ML pipeline runs on it. No documents are accessible. The kiosk is a secure, minimal display node: it fetches only the user's own rows from Supabase via Row-Level Security, shows them their personalised results, and does nothing else. This extends the platform from a mobile app into a physical healthcare touchpoint without compromising the privacy model at any point.
+Fidsurance is differentiated on three fronts no other team is likely to match simultaneously. First, we implement all three ML techniques the problem statement specifies — XGBoost classification, weighted suitability scoring, and cosine similarity ranking — in a single stacked pipeline whose every output is inspectable in the API response. Second, we catalogued 154 real Indian insurance plans (vs. the 15–20 typical of hackathon demos), making recommendations genuinely meaningful. Third, our persistent AI Agent goes beyond chat: typing "what if I get a heart attack" automatically generates a cost scenario, pre-fills the Stress Test modal with AI-estimated parameters, and returns a personalised out-of-pocket verdict — closing the loop from curiosity to financial clarity in a single message.
 
 ---
 
@@ -140,105 +75,69 @@ Insurance decisions are often made *at* the point of care — in a hospital wait
 
 ### 3.1 High-Level Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        USER'S DEVICE (Mobile / Web)                     │
-│                                                                         │
-│   React Native + Expo App (NativeWind)                                  │
-│                                                                         │
-│   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌───────────┐  │
-│   │ Step 1 & 2   │  │   Step 3     │  │   Step 4     │  │ Dashboard │  │
-│   │ Intake Form  │→│ Health Agent  │→│Privacy Screen│→│ Results + │  │
-│   │ (Demo + Fin) │  │(PDF/Photo/   │  │(Verify 10    │  │  Agent    │  │
-│   │              │  │ Chat)        │  │ values)      │  │   Chat    │  │
-│   └──────────────┘  └──────┬───────┘  └──────────────┘  └─────┬─────┘  │
-│                             │ [ON DEVICE]                       │        │
-│                  pdfjs-dist │ PDF → plain text                 │        │
-│                  Gemma 3 1B │ image → extracted vitals          │        │
-│                             │                                   │        │
-│                     Only 10 numeric values sent ──────────────►│        │
-└─────────────────────────────────────────────────────────────────┼────────┘
-                                                                  │ HTTPS + JWT
-                                                                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         FASTAPI BACKEND (Python)                        │
-│                                                                         │
-│   POST /api/assess                                                      │
-│   ┌─────────────────────────────────────────────────────────────────┐  │
-│   │  STAGE 1: XGBoost Health Risk Classifier                        │  │
-│   │  Input: 11 features  →  Output: risk_tier + risk_score +        │  │
-│   │         (10 user + 1 engineered)       feature_importance[]     │  │
-│   └───────────────────────────────┬─────────────────────────────────┘  │
-│                                   │ risk_tier                           │
-│   ┌───────────────────────────────▼─────────────────────────────────┐  │
-│   │  STAGE 2: Weighted 6-Factor Suitability Scorer                  │  │
-│   │  Per plan: Budget Fit + Condition Match + Risk Alignment +      │  │
-│   │            Age Gate + Coverage Adequacy + Family Fit            │  │
-│   │  Output: suitability_score (0-10) + breakdown per factor        │  │
-│   └───────────────────────────────┬─────────────────────────────────┘  │
-│                                   │ scored plans                        │
-│   ┌───────────────────────────────▼─────────────────────────────────┐  │
-│   │  STAGE 3: Cosine Similarity KNN Ranker                          │  │
-│   │  user_vector (10D) vs plan ideal_vector (10D)                   │  │
-│   │  combined = 0.60 × suitability + 0.40 × cosine_similarity       │  │
-│   │  Output: Top 5 plans sorted by combined match_score             │  │
-│   └───────────────────────────────┬─────────────────────────────────┘  │
-│                                   │ top 5 plans                         │
-│   ┌───────────────────────────────▼─────────────────────────────────┐  │
-│   │  Gemma 3 1B LLM (local GPU via HuggingFace Transformers)        │  │
-│   │  Generates: 2-sentence plain-English explanation per plan       │  │
-│   └───────────────────────────────┬─────────────────────────────────┘  │
-│                                   │                                     │
-│   POST /api/agent  POST /api/extract   POST /api/stress-test            │
-│   (6-tool orchestration) (OCR/image)   (Emergency cost simulator)       │
-│                                   │                                     │
-└───────────────────────────────────┼─────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     SUPABASE (PostgreSQL + Auth)                        │
-│                                                                         │
-│   Auth: JWT sign-in/register (email + password)                        │
-│   Tables: users · assessments · recommendations · bookmarks · chats    │
-│   Row-Level Security: every query scoped to the requesting user's JWT  │
-└─────────────────────────────────┬───────────────────────────────────────┘
-                                  │  JWT  (read recommendations only)
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                 RASPBERRY PI HOSPITAL KIOSK (Edge Node)                 │
-│                                                                         │
-│   React Native Web (read-only kiosk UI, full-screen browser)           │
-│                                                                         │
-│   Patient logs in ──► JWT sent to Supabase ──► RLS returns ONLY        │
-│   their own saved recommendations (plan name, match score, Day 1       │
-│   badges, premium, coverage) — nothing else.                           │
-│                                                                         │
-│   ✗ No vitals stored on device      ✗ No ML pipeline                   │
-│   ✗ No documents accessible         ✗ No write access to DB            │
-│   ✓ Shared hardware, private data   ✓ Point-of-care access             │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+> *[ Architecture Diagram — attach digital diagram here. Generated using eraser.io / draw.io ]*
 
-> **Privacy note:** The PDF/photo never crosses the network — only 10 numeric values leave the user's device. The Raspberry Pi kiosk never touches those values either; it only reads previously saved recommendations from Supabase via JWT + Row-Level Security.
+```
+┌──────────────────────────────────────────────────────────┐
+│               USER'S BROWSER (Next.js Web App)           │
+│                                                          │
+│  Intake Form → Health Agent → Privacy Screen → Dashboard │
+│  (Demographics)  (PDF/Photo)   (Verify 10 values)  + AI  │
+│                                                          │
+│         Only 10 numeric values sent via HTTPS + JWT      │
+└──────────────────────────────┬───────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────┐
+│              FASTAPI BACKEND (Python / Uvicorn)          │
+│                                                          │
+│  POST /api/assess                                        │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │ STAGE 1: XGBoost → risk_tier + risk_score +        │  │
+│  │          feature_importance[]                       │  │
+│  └──────────────────────┬─────────────────────────────┘  │
+│                         │                                │
+│  ┌──────────────────────▼─────────────────────────────┐  │
+│  │ STAGE 2: Weighted 6-Factor Suitability Scorer      │  │
+│  │ Output: suitability_score (0–10) per plan          │  │
+│  └──────────────────────┬─────────────────────────────┘  │
+│                         │                                │
+│  ┌──────────────────────▼─────────────────────────────┐  │
+│  │ STAGE 3: Cosine Similarity KNN Ranker              │  │
+│  │ user_vector (10D) vs plan ideal_vector (10D)       │  │
+│  │ Final score = 0.60 × suitability + 0.40 × cosine  │  │
+│  └──────────────────────┬─────────────────────────────┘  │
+│                         │                                │
+│  ┌──────────────────────▼─────────────────────────────┐  │
+│  │ LLM Layer — llm_service.py                         │  │
+│  │ PRIMARY:  OpenAI GPT-4o                            │  │
+│  │ FALLBACK: Gemini 2.5 Flash (auto-switched)         │  │
+│  └──────────────────────┬─────────────────────────────┘  │
+│                         │                                │
+│  POST /api/agent    POST /api/stress-test               │
+│  (6-tool chatbot)   (Emergency cost simulator)          │
+└──────────────────────────┬───────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────┐
+│              SUPABASE (PostgreSQL + Auth)                 │
+│  JWT Auth · RLS on all tables                           │
+│  profiles · assessment_sessions · recommendations       │
+│  plan_bookmarks · chat_messages                         │
+└──────────────────────────────────────────────────────────┘
+```
 
 ### 3.2 Technology Stack
 
 | Layer | Technology Chosen | Reason for Choice |
 |---|---|---|
-| **Frontend** | React Native + Expo (SDK 52) | Single codebase for Android, iOS, and Web. Expo managed workflow eliminates native build complexity in a hackathon setting. |
-| **Styling** | NativeWind (Tailwind CSS for RN) | Utility-first classes enable rapid iteration without context-switching between a stylesheet and JSX. |
-| **Navigation** | React Navigation (Stack + Bottom Tabs) | De facto standard for React Native; declarative and simple to wire for a 5-step assessment flow. |
-| **PDF Parsing (on-device)** | pdfjs-dist | Runs entirely in the JS runtime — no server call needed to read a PDF. Core to our privacy story. |
-| **Image Picker** | expo-image-picker + expo-document-picker | Managed Expo APIs for camera and gallery access on both Android and iOS. |
-| **Backend API** | FastAPI + Uvicorn (Python) | Async, typed, auto-generates OpenAPI docs. Ideal for an ML-heavy Python stack. Sub-10ms serialisation overhead. |
-| **ML — Risk Classifier** | XGBoost (scikit-learn API) | Built-in feature importance via `get_fscore()`, handles mixed feature types, <1ms inference, industry-proven for tabular health data. |
-| **ML — Suitability Scorer** | Custom Python engine (scorer.py) | Rules-based weighted scoring gives hard constraints (age gate, condition match) deterministic control. |
-| **ML — Ranker** | Cosine Similarity (pure Python, no sklearn dependency) | Lightweight, interpretable, and sufficient for a 20-plan catalogue. No training phase required for the ranker. |
-| **LLM** | Gemma 3 1B (HuggingFace Transformers, local GPU) | Runs on the team's local GPU — no OpenAI/Gemini API cost, no data sent to a third-party LLM, no rate limits during demo. |
-| **Database** | Supabase (PostgreSQL) | Managed Postgres with row-level security, real-time, and a built-in Auth layer — removes infrastructure overhead. |
-| **Authentication** | Supabase Auth + JWT (HS256) | Industry-standard JWT with automatic refresh. Backend verifies token on every sensitive route. |
-| **Hosting / Deployment** | Local (FastAPI on port 8000) + Expo Go (demo) | Hackathon scope. Backend runs on team laptop; mobile app scanned via QR. The Gemma GPU requirement makes local hosting the correct choice. |
-| **Kiosk Hardware** | Raspberry Pi 4 (2 GB RAM, Raspberry Pi OS Lite) | Low-cost, silent hardware that boots directly into a full-screen Chromium kiosk. Runs no ML — acts purely as a secure display terminal. Demonstrates the platform's real-world deployability beyond a mobile app. |
+| **Frontend** | Next.js (App Router) + TypeScript | File-based routing, server components, zero-config TypeScript. Single codebase for web and mobile browser. |
+| **Styling** | Tailwind CSS v4 | Utility-first; v4 CSS-native variables allow rapid design iteration without custom CSS. |
+| **Backend** | FastAPI + Uvicorn (Python) | Async, auto-generates OpenAPI docs, ideal for an ML-heavy Python stack with sub-10ms serialisation. |
+| **AI / ML** | XGBoost + Custom Scorer + Cosine Similarity + OpenAI GPT-4o (primary) + Gemini 2.5 Flash (fallback) | Full 3-stage pipeline matching all three problem statement techniques; LLM for plain-English generation with automatic failover. |
+| **Database** | Supabase (PostgreSQL) | Managed Postgres with Row-Level Security, built-in Auth, and a free-tier JS SDK — removes infrastructure overhead. |
+| **Authentication** | Supabase Auth + JWT (HS256) | Industry-standard JWT with automatic refresh; verified on every sensitive backend route. |
+| **Hosting / Deployment** | FastAPI on localhost:8000 + Next.js dev server on localhost:3000 | Hackathon scope — both services run on the demo laptop. Plan catalogue (154 plans) served from in-memory Python constant for sub-ms lookup. |
 
 ---
 
@@ -246,81 +145,56 @@ Insurance decisions are often made *at* the point of care — in a hospital wait
 
 ### 4.1 Core User Flow
 
-> *[Attach screenshots / wireframes of each screen below. A selection of the key screens is described below to support the attached visuals.]*
+> *[ Wireframes — attach screenshots or design snapshots here. Include success and failure/error states. ]*
 
-**Screen flow diagram:**
-
+**Success flow:**
 ```
 Login / Register
       │
       ▼
-Step 1 — Personal Details
-  (Name · Age · Gender · City · Income · Budget · Coverage For)
+Step 1 — Personal Details (Name · Age · Gender · City · Income · Budget)
       │
       ▼
-Step 2 — Health Conditions
-  (Diabetes? · Hypertension? · Smoker? · Chronic conditions count)
+Step 2 — Health Conditions (Diabetes · Hypertension · Smoker · Chronic count)
       │
       ▼
-Step 3 — Health Agent  ◄────────────────────────────┐
-  [Upload PDF]  [Take Photo]  [Chat with AI]          │
-  Gemma extracts HbA1c / BP / BMI on-device           │
-  If values missing → agent asks for them conversationally
+Step 3 — Document Upload / Manual Entry
+  [Upload PDF]  [Take Photo]  [Enter Manually]
+  AI extracts HbA1c / BP / BMI
       │
       ▼
-Step 4 — Verify Vitals (Privacy Screen)
-  Shows 10 editable values with confidence badges
-  "Only these numbers go to our server. Your document stays here."
+Step 4 — Privacy Verify Screen
+  10 editable fields with confidence badges
+  "Only these numbers go to our server."
       │
-      ▼ POST /api/assess
-Dashboard — Results
-  ┌─────────────────────────────────────────┐
-  │  RISK CARD                              │
-  │  HIGH RISK  ·  Score 74/100  ·  87% confidence │
-  │  [Bar chart: HbA1c 31% | BMI 18% | Age 12%]   │
-  └─────────────────────────────────────────┘
-  ┌─────────────────────────────────────────┐
-  │  AFFORDABILITY SLIDER  ₹1,000 — ₹5,000/mo │
-  │  Drag to see plan rankings update live  │
-  └─────────────────────────────────────────┘
-  Plan Cards (×5):
-  ┌─────────────────────────────────────────┐
-  │  Star Health Diabetes Safe  · Match: 9.2/10 │
-  │  ₹14,000/yr  ·  ₹5L cover  ·  [DAY 1 ✓]  │
-  │  "Recommended because your HbA1c of 6.8% │
-  │   indicates pre-diabetic risk — this plan  │
-  │   covers diabetes-related hospitalization  │
-  │   from day one."                          │
-  │                   [Details]  [+ Compare]  │
-  └─────────────────────────────────────────┘
-  [AI Chat bottom sheet ↑]
-      │           │
-      ▼           ▼
-Plan Detail    Compare Screen
-(Stress Test)  (Side-by-side up to 3)
+      ▼  POST /api/assess
+Dashboard
+  [RISK CARD: HIGH · 74/100 · HbA1c 31% | BMI 18%]
+  [PLAN CARDS: Match score · Premium · Coverage · Day 1 badges]
+  [Details] [Compare] [Stress Test] [Buy Plan →]
+  [✦ AI Agent Bar always pinned at bottom]
+      │              │
+      ▼              ▼
+Plan Detail      Compare Drawer
+(Stress Test)    (Side-by-side up to 3)
 ```
+
+**Failure / error states:**
+- Backend unreachable → dashboard shows "Simulated mode" amber warning banner; plans loaded from fallback defaults.
+- LLM API failure → plan cards rendered without explanation text; agent returns error message to user.
+- Invalid JWT → user redirected to `/login` automatically via middleware.
+- Document extraction failure → user prompted to enter vitals manually; no data lost.
 
 ### 4.2 Plain-English Walkthrough
 
-1. **Login / Register:** The user opens the app and signs in via email and password. Supabase Auth issues a JWT which the app stores locally.
-
-2. **Step 1 — Personal Details:** A clean form collects name, age, city, gender, annual income, monthly insurance budget, and whether coverage is for an individual or a family. A green progress bar shows "1 of 5."
-
-3. **Step 2 — Health Conditions:** Toggle switches and input fields capture pre-existing conditions (diabetes, hypertension), smoking status, and a count of chronic illnesses. Jargon-free labels with brief tooltips.
-
-4. **Step 3 — Health Agent:** Three prominent action buttons: *Upload Lab Report (PDF)*, *Take a Photo*, *Enter Manually*. If the user uploads a PDF, pdfjs-dist extracts text on-device and sends it to Gemma via /api/extract. Gemma replies with a JSON of extracted vitals, or a friendly conversational message asking for the missing ones. The user can also just type their HbA1c into the chat directly. A "Skip" option fills in safe population-average defaults.
-
-5. **Step 4 — Privacy / Verify Screen:** A green shield banner says *"Your document stays on your device."* Below it, 10 labelled fields show the extracted values — each editable. A confidence indicator (green = extracted cleanly, amber = inferred, red = defaulted) appears next to each. The user taps *"Confirm & Get Recommendations"*.
-
-6. **Dashboard — Risk Card + Plan Recommendations:** After a 2–3 second loading state, the dashboard appears. The Risk Card at the top shows the user's tier (colour-coded: green/orange/red/dark-red) with a 0–100 score and model confidence %. A horizontal bar chart shows the top 4 health factors that drove the classification. Below it, 5 plan cards each show the plan name, insurer badge, match score, annual premium, coverage amount, Day 1 condition badges, and a 2-sentence AI explanation.
-
-7. **Affordability Simulator:** Below the risk card, a budget slider lets the user drag their monthly budget from ₹500 to ₹5,000. On release, the app re-calls /api/assess and re-ranks the plans live — cheaper plans rise if the budget is reduced.
-
-8. **AI Chat Agent:** A floating chat button opens a bottom sheet. The user types *"What if I also have kidney disease?"* and the agent calls /api/assess with the updated profile and shows new rankings in-line. For plan-specific questions like *"Does plan 2 cover my hypertension from day 1?"* the agent looks up the plan data and explains.
-
-9. **Plan Detail — Stress Test Simulator:** Tapping a plan opens a detail screen with coverage highlights, premium breakdown, exclusions, pros/cons, and a Claim Settlement Ratio badge. A *"Stress Test"* button opens a modal where the user selects a scenario (Cardiac Event, ICU Stay, Cancer Diagnosis, Hip Replacement). The app calculates: total cost − (coverage − deductible − co-payment) = out-of-pocket amount. This immediately shows whether the plan is adequate for a real emergency.
-
-10. **Compare Screen:** Tapping *"+ Compare"* on up to 3 plan cards opens a side-by-side table covering co-payment %, room rent limit, pre-existing wait period, Day 1 coverage flags, restoration benefit, no-claim bonus, hospital network count, and key exclusions.
+1. **Login / Register:** User signs in via email and password. Supabase Auth issues a JWT stored in the browser session.
+2. **Step 1 — Personal Details:** Form collects name, age, city, gender, annual income, monthly budget, and individual vs. family coverage type.
+3. **Step 2 — Health Conditions:** Toggle switches capture diabetes, hypertension, smoking status, and a count of chronic conditions.
+4. **Step 3 — Document / Manual Entry:** User uploads a lab report PDF or photo, or types values manually. AI extracts HbA1c, BP, and BMI from the document.
+5. **Step 4 — Privacy Screen:** 10 labelled, editable fields displayed with confidence indicators (green = clean extraction, amber = inferred, red = defaulted). User confirms before any data is transmitted.
+6. **Dashboard:** Risk Card shows tier (colour-coded), score, and XGBoost feature importance bar chart. Below it, plan cards show match score, premium, coverage, Day 1 badges, warning flags, GPT-4o explanation, and four action buttons: Details, Compare, Stress Test, Buy Plan.
+7. **AI Agent Chatbar:** Persistent bar at screen bottom. Natural language queries trigger live ML re-assessments, pre-filled stress test modals, or plan comparisons — all returned inline as a conversational reply.
+8. **Stress Test / Compare:** User selects or describes an emergency scenario to see out-of-pocket costs, or adds up to 3 plans to a side-by-side comparison table.
 
 ---
 
@@ -328,84 +202,78 @@ Plan Detail    Compare Screen
 
 ### 5.1 ER Diagram
 
-> *[Attach ER diagram here — hand-drawn or digital]*
+> *[ ER Diagram — attach hand-drawn or digital diagram here. Minimum 5 entities with attributes and relationship cardinalities labelled. ]*
 
-**Text notation of entities and relationships:**
+**Entity-relationship text notation:**
 
 ```
-[users] ─────────────< [assessments]
-    id (PK)                 id (PK)
-    email                   user_id (FK → users)
-    full_name               age, bmi, hba1c, bp_systolic
-    city                    smoker, has_diabetes, has_hypertension
-    created_at              chronic_count, monthly_budget, income_lakh
-                            coverage_for, family_members
-                            risk_tier, risk_score, confidence_pct
-                            created_at
+[profiles] 1 ────────────── N [assessment_sessions]
+    id (PK)                       id (PK)
+    full_name                     user_id (FK → profiles)
+    city                          age, bmi, hba1c, bp_systolic
+    created_at                    smoker, has_diabetes, has_hypertension
+                                  chronic_count, monthly_budget, income_lakh
+                                  coverage_for, family_members
+                                  risk_tier, risk_score, confidence_pct
+                                  created_at
 
-[assessments] ────────< [recommendations]
-    id (PK)                 id (PK)
-                            assessment_id (FK → assessments)
-                            plan_id (int, references plans_db)
-                            match_score, suitability_score
-                            cosine_similarity_score
-                            plain_english_explanation
-                            suitability_breakdown (JSONB)
-                            created_at
+[assessment_sessions] 1 ─── N [recommendations]
+    id (PK)                       id (PK)
+                                  assessment_id (FK → assessment_sessions)
+                                  top_plan_ids (JSONB — ranked plan list)
+                                  match_score, suitability_score
+                                  cosine_similarity_score
+                                  plain_english_explanation
+                                  created_at
 
-[users] ──────────────< [plan_bookmarks]
-    id (PK)                 id (PK)
-                            user_id (FK → users)
-                            plan_id (int)
-                            bookmarked_at
+[profiles] 1 ────────────── N [plan_bookmarks]
+    id (PK)                       id (PK)
+                                  user_id (FK → profiles)
+                                  plan_id (int — references plans_db.py)
+                                  bookmarked_at
 
-[assessments] ────────< [chat_messages]
-    id (PK)                 id (PK)
-                            assessment_id (FK → assessments)
-                            user_id (FK → users)
-                            role (user | assistant)
-                            content (text)
-                            created_at
+[assessment_sessions] 1 ─── N [chat_messages]
+    id (PK)                       id (PK)
+                                  assessment_id (FK → assessment_sessions)
+                                  user_id (FK → profiles)
+                                  role (user | assistant)
+                                  content (text)
+                                  tool_used (text, nullable)
+                                  created_at
 
-[users] ──────────────< [stress_test_results]  (optional, stored for demo)
-    id (PK)                 id (PK)
-                            user_id (FK → users)
-                            plan_id (int)
-                            scenario_id (text)
-                            total_cost, covered_amount
-                            out_of_pocket, created_at
+[profiles] 1 ────────────── N [stress_test_results]
+    id (PK)                       id (PK)
+                                  user_id (FK → profiles)
+                                  plan_id (int)
+                                  scenario_name (text)
+                                  total_cost, covered_amount
+                                  out_of_pocket, verdict
+                                  created_at
 ```
 
-**Relationships summary:**
-- `users` → `assessments`: 1:N (one user can complete multiple assessments over time)
-- `assessments` → `recommendations`: 1:N (each assessment produces up to 5 recommendations)
-- `users` → `plan_bookmarks`: 1:N (a user can bookmark multiple plans)
-- `assessments` → `chat_messages`: 1:N (each chat session is scoped to an assessment context)
-- `users` → `stress_test_results`: 1:N (optional persisted simulation results)
+**Relationship cardinalities:**
+- `profiles` → `assessment_sessions`: **1:N** — one user completes multiple assessments over time
+- `assessment_sessions` → `recommendations`: **1:N** — each assessment stores a ranked result set (JSONB)
+- `profiles` → `plan_bookmarks`: **1:N** — a user can bookmark multiple plans
+- `assessment_sessions` → `chat_messages`: **1:N** — chat history scoped per assessment context
+- `profiles` → `stress_test_results`: **1:N** — simulation results stored per user per scenario
 
 ### 5.2 Key Tables / Collections
 
 | Table / Collection | Key Fields | Purpose |
 |---|---|---|
-| `users` | `id`, `email`, `full_name`, `city`, `created_at` | Authentication identity and profile metadata. Row-level security enforced by Supabase. |
-| `assessments` | `id`, `user_id`, `age`, `bmi`, `hba1c`, `bp_systolic`, `risk_tier`, `risk_score`, `monthly_budget`, `income_lakh`, `coverage_for`, `created_at` | Stores each completed health intake. The 10 numeric vitals are stored here — not the raw document. Foreign-keyed to users. |
-| `recommendations` | `id`, `assessment_id`, `plan_id`, `match_score`, `suitability_breakdown` (JSONB), `plain_english_explanation`, `created_at` | Persists the ML pipeline output per plan per assessment. `suitability_breakdown` is a JSON object with per-factor scores for the explainability chart. |
-| `plan_bookmarks` | `id`, `user_id`, `plan_id`, `bookmarked_at` | Allows users to save plans for later review. No foreign key to a `plans` table — plan catalogue is stored as a Python constant (`plans_db.py`) for demo speed. |
-| `chat_messages` | `id`, `assessment_id`, `user_id`, `role`, `content`, `created_at` | Persists the full conversation history for the AI agent. `role` is `user` or `assistant`. Context is scoped per assessment so the agent always knows which profile it's advising on. |
+| `profiles` | `id`, `full_name`, `city`, `created_at` | User profile metadata. Row-Level Security enforced at DB layer by Supabase. |
+| `assessment_sessions` | `id`, `user_id`, `age`, `bmi`, `hba1c`, `bp_systolic`, `risk_tier`, `risk_score`, `monthly_budget`, `income_lakh`, `created_at` | Stores each completed health intake. Only 10 numeric vitals — raw documents never persisted. |
+| `recommendations` | `id`, `assessment_id`, `top_plan_ids` (JSONB), `match_score`, `plain_english_explanation`, `created_at` | Persists full ML pipeline output. JSONB stores ranked plan list with per-factor suitability breakdowns. |
+| `plan_bookmarks` | `id`, `user_id`, `plan_id`, `bookmarked_at` | User-saved plans. Plan catalogue lives in `plans_db.py` (154 plans) for sub-millisecond in-memory lookup. |
+| `chat_messages` | `id`, `assessment_id`, `user_id`, `role`, `content`, `tool_used`, `created_at` | Full agent conversation history. `role` is `user` or `assistant`. Scoped per assessment so agent always knows which profile it is advising. |
+| `stress_test_results` | `id`, `user_id`, `plan_id`, `scenario_name`, `total_cost`, `out_of_pocket`, `verdict`, `created_at` | Persisted simulation results for the stress test feature. |
 
 ### 5.3 Database Choice & Justification
 
 **Database chosen: Supabase (managed PostgreSQL)**
 
-We chose Supabase for three reasons aligned with our specific data patterns:
-
-1. **Structured relational data with JSONB flexibility.** Our core tables (users, assessments, recommendations) are highly relational and benefit from foreign key constraints and join queries. However, `suitability_breakdown` — the per-factor score object returned by the ML pipeline — has a variable structure depending on plan type. JSONB columns in PostgreSQL give us structured storage with document-style flexibility for that field without a separate NoSQL layer.
-
-2. **Built-in Auth with Row-Level Security.** Insurance and health data is sensitive. Supabase's RLS policies enforce at the database layer that a user can only read their own assessments and recommendations — even if application-level auth is bypassed. This is a stronger privacy guarantee than application-only enforcement.
-
-3. **Zero-friction managed setup for a hackathon.** Supabase provides a hosted PostgreSQL instance with a REST API, a JavaScript SDK, and an admin dashboard — all on a free tier. We can iterate on schema changes via the web console without managing a local Postgres instance or running migrations manually. For a 24-hour build sprint this operational simplicity is critical.
-
-The insurance plan catalogue (20 plans with full metadata) is stored as a Python constant in `plans_db.py` rather than in the database. This gives us sub-millisecond plan lookup without a DB round-trip on every `/api/assess` call. In a production system, this would migrate to a `insurance_plans` table with admin-managed plan data.
+We chose Supabase for three reasons aligned with our specific data patterns. First, our core tables are highly relational (FK constraints across profiles, assessments, recommendations, and chats), while `top_plan_ids` uses JSONB for the variable-structure ranked plan list — giving us structured storage with document-style flexibility in one layer. Second, Supabase's Row-Level Security enforces at the PostgreSQL engine level that a user can only read their own rows — a stronger privacy guarantee than application-only guards, essential for health and financial data. Third, Supabase's free-tier hosted Postgres, REST API, JavaScript SDK, and admin console eliminated all infrastructure setup during the hackathon build sprint.
 
 ---
 
@@ -413,19 +281,9 @@ The insurance plan catalogue (20 plans with full metadata) is stored as a Python
 
 ### 6.1 What will your demo look like?
 
-The judge will see the **exact scenario from the problem statement** played out live in under 3 minutes.
-
-We open the app as a fresh user: *Priya, 35, Bangalore, ₹8 LPA income, diabetic family history, HbA1c of 6.8%*. She uploads a photo of a sample blood sugar report. The screen shows Gemma reading the report on-device and extracting her HbA1c (6.8%), BP (128/82), and BMI (27.4) in real time. The Privacy Screen appears — she verifies the 10 numbers and taps Confirm.
-
-In 2–3 seconds, the Dashboard loads. The Risk Card shows **HIGH RISK · Score 74/100 · 87% confidence**, with a bar chart showing HbA1c at 31% and BMI at 18% as the top drivers. Plan 1 in the recommendations is *Star Health Diabetes Safe* with a match score of **9.2/10** and the Gemma explanation: *"Recommended because your HbA1c of 6.8% indicates pre-diabetic risk — this plan covers diabetes-related hospitalization from day one with no waiting period."*
-
-We then drag the Affordability Slider from ₹1,200/month down to ₹800/month — the rankings refresh live and the plan list reorders to show cheaper options. Finally, we open the AI chat and type *"What if my mother is also covered?"* — the agent updates the profile to a family plan and the top recommendation switches to *Care Health Family Heart* with Day 1 diabetes cover for families.
-
-As a final beat, we switch to the Raspberry Pi kiosk running on a physical device beside the laptop. Priya logs in with the same credentials. The kiosk retrieves her saved recommendations from Supabase via JWT and Row-Level Security — showing her matched plans, match scores, and Day 1 badges on a clean read-only screen. No vitals, no documents, no ML pipeline on the shared device. A judge sitting in a hospital waiting area can picture exactly how this works in the real world.
-
-The judge leaves having seen: JWT login, on-device OCR, all 3 ML stages firing, explainable feature importance, live plan re-ranking, a conversational AI agent, and a physical hospital kiosk — all in a single cohesive 4-minute demo flow.
+A judge will watch *Priya, 35, Bangalore, HbA1c 6.8%* complete the intake form, upload a sample blood sugar report, and receive a dashboard showing **HIGH RISK · Score 74/100** with a ranked plan list — the top match carrying a GPT-4o explanation reading *"Recommended because your HbA1c indicates pre-diabetic risk — this plan covers diabetes hospitalization from Day 1"* and a visible **Buy Plan** button. The judge will then watch the AI Agent Bar receive the query *"What if I get a heart attack?"*, trigger a live ML re-run, generate a cardiac cost scenario, pre-fill the Stress Test modal, and return an out-of-pocket verdict conversationally — all without leaving the dashboard. The full flow covers JWT login, AI document extraction, all three ML stages, explainable risk, conversational AI agent, stress test simulation, plan comparison, and purchase redirect in under 4 minutes.
 
 ---
 
 *File name for submission: `Fid2026_Synopsis_Fidsurance.pdf`*
-*Convert this document: File → Save As → PDF before submission.*
+*Convert: File → Save As → PDF before submission. Maximum 6 pages of written content (diagrams excluded).*

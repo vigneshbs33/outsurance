@@ -1,5 +1,5 @@
 """
-FIDSURANCE — XGBoost Model Trainer
+OUTSURANCE — XGBoost Model Trainer
 Trains a multi-class risk classifier: Low / Medium / High / Critical
 
 Run this ONCE before starting the backend:
@@ -113,7 +113,7 @@ def evaluate(model, X_test, y_test, le):
     f1_weighted = f1_score(y_test, y_pred, average='weighted')
 
     print(f"\n{'='*50}")
-    print(f"  FIDSURANCE ML MODEL — EVALUATION REPORT")
+    print(f"  OUTSURANCE ML MODEL — EVALUATION REPORT")
     print(f"{'='*50}")
     print(f"  Accuracy:        {acc:.4f}  ({acc*100:.1f}%)")
     print(f"  Weighted F1:     {f1_weighted:.4f}")
@@ -175,7 +175,7 @@ def cross_validate(model, X, y):
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     print("=" * 50)
-    print("  FIDSURANCE — ML Training Pipeline")
+    print("  OUTSURANCE — ML Training Pipeline")
     print("=" * 50)
 
     # 1. Load

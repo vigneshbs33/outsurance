@@ -13,3 +13,5 @@ requests
 transformers
 torch
 accelerate
+bitsandbytes
+huggingface-hub

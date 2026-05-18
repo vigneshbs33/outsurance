@@ -1,7 +1,7 @@
 """
-Fidsurance Master Orchestration Agent
+Outsurance Master Orchestration Agent
 ======================================
-A tool-use style AI agent that operates the full Fidsurance platform
+A tool-use style AI agent that operates the full Outsurance platform
 through natural language conversation.
 
 Architecture:
@@ -238,7 +238,7 @@ def _tool_reassess(
 
     for plan in top_plans:
         sys_p = (
-            "You are Fidsurance's AI health advisor. "
+            "You are Outsurance's AI health advisor. "
             "Write a warm, specific 2-sentence explanation of why this insurance plan "
             "fits this user's health and financial profile."
         )
@@ -251,7 +251,8 @@ def _tool_reassess(
         )
         try:
             plan['plain_english_explanation'] = llm_generate(sys_p, user_p, max_tokens=80)
-        except Exception:
+        except Exception as e:
+            print(f"[WARN] agent reassess LLM failed for plan {plan.get('id')}: {e}")
             plan['plain_english_explanation'] = (
                 f"This {plan['type']} plan scored {plan['suitability_score']}/10 for your profile."
             )
@@ -286,19 +287,69 @@ def _tool_budget_sim(
     }
 
 
-def _tool_stress_test(plan_id: int, scenario_id: str, current_plans: List[Dict]) -> Dict:
-    """Simulate emergency out-of-pocket for a plan + scenario."""
+def _tool_stress_test(plan_id: int, user_query: str, current_plans: List[Dict], llm_generate: Callable) -> Dict:
+    """Simulate emergency out-of-pocket for a plan dynamically via LLM."""
     plan = next((p for p in (current_plans or []) if p.get('id') == plan_id), None)
     if not plan:
         plan = next((p for p in INSURANCE_PLANS if p['id'] == plan_id), None)
     if not plan:
         return {"error": f"Plan ID {plan_id} not found"}
 
-    result = simulate(plan, scenario_id)
-    result['plan_id'] = plan_id
-    result['plan_name'] = plan.get('name', f'Plan {plan_id}')
-    result['insurer'] = plan.get('insurer', '')
-    return result
+    sys_prompt = (
+        "Extract the medical scenario from the user query and output a clean JSON object: "
+        "{\"name\": \"Scenario Name\", \"cost\": 350000, \"days\": 4, \"isChronic\": false}. "
+        "Cost should be a typical hospital bill in INR."
+    )
+    user_prompt = f"Query: {user_query}"
+    
+    try:
+        resp = llm_generate(sys_prompt, user_prompt, max_tokens=100)
+        cleaned = resp.replace("```json", "").replace("```", "").strip()
+        import json
+        data = json.loads(cleaned)
+        scenario_name = data.get("name", "Medical Emergency")
+        total_cost = int(data.get("cost", 300000))
+        days = int(data.get("days", 3))
+        is_chronic = bool(data.get("isChronic", False))
+    except Exception as e:
+        print(f"Error extracting scenario for stress test: {e}")
+        scenario_name = "Emergency Hospitalisation"
+        total_cost = 400000
+        days = 3
+        is_chronic = False
+
+    coverage   = plan.get("coverage", 500000)
+    copay_pct  = plan.get("copayment_pct", 0) / 100.0
+    room_limit = plan.get("room_rent_limit", "No Limit")
+
+    room_rent_penalty = 0
+    if room_limit not in {"No Limit", "Any Room", "N/A"}:
+        room_rent_penalty = int(total_cost * 0.20)
+
+    claimable = total_cost - room_rent_penalty
+    covered_before_copay = min(claimable, coverage)
+    copay_amount = round(covered_before_copay * copay_pct)
+    plan_covers  = covered_before_copay - copay_amount
+    out_of_pocket    = total_cost - plan_covers
+
+    if out_of_pocket == 0: verdict = "Fully covered"
+    elif out_of_pocket <= 50_000: verdict = "Minimal out-of-pocket"
+    elif out_of_pocket <= 150_000: verdict = "Manageable gap"
+    elif out_of_pocket <= 350_000: verdict = "Significant gap"
+    else: verdict = "High financial risk"
+
+    return {
+        "plan_id": plan_id,
+        "plan_name": plan.get('name', f'Plan {plan_id}'),
+        "insurer": plan.get('insurer', ''),
+        "scenario_name": scenario_name,
+        "scenario_id": "custom",
+        "custom_details": {"cost": total_cost, "days": days, "isChronic": is_chronic},
+        "total_cost": total_cost,
+        "plan_covers": plan_covers,
+        "out_of_pocket": out_of_pocket,
+        "verdict": verdict
+    }
 
 
 def _tool_compare(plan_ids: List[int], current_plans: List[Dict]) -> Dict:
@@ -522,8 +573,7 @@ def run_agent(
     elif intent == "stress_test":
         plan_ids = _extract_plan_ids(latest, current_plans)
         plan_id = plan_ids[0] if plan_ids else (current_plans[0]['id'] if current_plans else 1)
-        scenario_id = _extract_scenario(latest) or 'cardiac_event'
-        tool_result = _tool_stress_test(plan_id, scenario_id, current_plans)
+        tool_result = _tool_stress_test(plan_id, latest, current_plans, llm_generate)
         tool_used = "stress_test"
 
     elif intent == "compare":
@@ -558,7 +608,7 @@ def run_agent(
     history = "\n".join(history_lines)
 
     sys_prompt = (
-        "You are Fidsurance's AI insurance advisor. You have access to the user's health profile, "
+        "You are Outsurance's AI insurance advisor. You have access to the user's health profile, "
         "risk assessment, and recommended insurance plans. "
         "Respond in 2-3 sentences. Be warm, specific, and jargon-free. "
         "When a tool result is available, summarise it clearly for the user. "
@@ -574,13 +624,14 @@ def run_agent(
 
     try:
         response = llm_generate(sys_prompt, user_prompt, max_tokens=150)
-    except Exception:
+    except Exception as e:
+        print(f"[WARN] agent LLM generation failed: {e}")
         # Graceful fallback: use tool context if available
         if tool_ctx:
             response = tool_ctx
         else:
             response = (
-                "I'm your Fidsurance advisor. You can ask me to re-assess your profile with "
+                "I'm your Outsurance advisor. You can ask me to re-assess your profile with "
                 "a new condition, simulate a different budget, run a stress test, or compare plans."
             )
 

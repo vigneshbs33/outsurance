@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 /** 
- * FIDSURANCE ON-DEVICE AI (PROXY TO LOCAL BACKEND)
+ * OUTSURANCE ON-DEVICE AI (PROXY TO LOCAL BACKEND)
  * Model: Gemma 3 1B
  * Runtime: Local Python FastAPI (Hugging Face Transformers)
  */

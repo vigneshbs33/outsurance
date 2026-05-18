@@ -1,0 +1,774 @@
+'use client';
+
+import React, { Suspense, useEffect, useState, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Sidebar from '../../components/Sidebar';
+import { AnnotationBox, SectionEyebrow } from '../../components/editorial';
+import { fetchAllPlans, generateOnDeviceReasoning, callAgent } from '../../lib/api';
+import { supabase, getLatestRecommendation } from '../../lib/supabase';
+import { useCompare } from '../../lib/compare';
+import StressTestModal, { Plan } from '../../components/StressTestModal';
+import CompareDrawer from '../../components/CompareDrawer';
+import { Sparkles, Send, Bot } from 'lucide-react';
+
+function DashboardContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [name, setName] = useState('Member');
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [vitals, setVitals] = useState<Record<string, any>>({
+    age: 35,
+    bmi: 26.5,
+    smoker: 0,
+    hba1c: 6.2,
+    bp_systolic: 120,
+    has_diabetes: false,
+    has_hypertension: false,
+    chronic_count: 0,
+    monthly_budget: 3000,
+    income_lakh: 8.0,
+  });
+  const [score, setScore] = useState(parseInt(searchParams.get('score') || '63', 10));
+  const [tier, setTier] = useState(searchParams.get('tier') || 'MEDIUM');
+  const [featureImportances, setFeatureImportances] = useState<Record<string, number> | null>(null);
+
+  const [selectedPlanForStress, setSelectedPlanForStress] = useState<Plan | null>(null);
+  const [stressTestInitialScenario, setStressTestInitialScenario] = useState<{ id: string; name?: string; cost?: number; days?: number; isChronic?: boolean; } | undefined>();
+  const [isCompareDrawerOpen, setIsCompareDrawerOpen] = useState(false);
+
+  const { compareIds, toggleCompare, clearCompare, isInCompare } = useCompare();
+
+  // AI Agent Bar States
+  const [agentInput, setAgentInput] = useState('');
+  const [agentResponse, setAgentResponse] = useState<string | null>(null);
+  const [agentToolUsed, setAgentToolUsed] = useState<string | null>(null);
+  const [agentChatHistory, setAgentChatHistory] = useState<{ role: string; content: string }[]>([]);
+  const [isAgentLoading, setIsAgentLoading] = useState(false);
+
+  useEffect(() => {
+    function loadUserData(user: any) {
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle()
+        .then(({ data }) => setName(data?.full_name?.split(' ')[0] || 'Member'))
+        .catch(() => {});
+
+      supabase
+        .from('assessment_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setVitals({
+              age: data.age || 35,
+              bmi: data.bmi || 26.5,
+              smoker: data.smoker || 0,
+              hba1c: data.hba1c || 6.2,
+              bp_systolic: data.bp_systolic || 120,
+              has_diabetes: data.has_diabetes,
+              has_hypertension: data.has_hypertension,
+              chronic_count: data.chronic_count || 0,
+              monthly_budget: data.monthly_budget || 3000,
+              income_lakh: data.income_lakh || 8.0,
+            });
+          }
+        })
+        .catch(() => {});
+
+      Promise.all([
+        fetchAllPlans(),
+        getLatestRecommendation(user.id)
+      ])
+        .then(([allPlans, recommendation]) => {
+          if (recommendation && recommendation.top_plan_ids && recommendation.top_plan_ids.length > 0) {
+            setScore(Math.round(recommendation.risk_score * 100));
+            setTier(recommendation.risk_tier);
+
+            if (recommendation.top_plan_ids[0]?.feature_importance_explanation) {
+              setFeatureImportances(recommendation.top_plan_ids[0].feature_importance_explanation);
+            }
+
+            const recommended = recommendation.top_plan_ids.map((recPlan: any) => {
+              const matchedPlan = allPlans.find((p: any) => p.id === recPlan.id);
+              if (matchedPlan) {
+                return {
+                  ...matchedPlan,
+                  suitability_score: recPlan.score,
+                  cosine_similarity: recPlan.cosine_similarity,
+                  plain_english_explanation: recPlan.plain_english_explanation,
+                  warning_flags: recPlan.warning_flags || matchedPlan.warning_flags || []
+                };
+              }
+              return null;
+            }).filter(Boolean) as Plan[];
+
+            setPlans(recommended);
+          } else {
+            setPlans(allPlans.slice(0, 3));
+          }
+        })
+        .catch(() => {});
+    }
+
+    if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+      const timer = setTimeout(() => {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (!user) {
+            router.push('/login');
+          } else {
+            loadUserData(user);
+          }
+        });
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+      loadUserData(user);
+    });
+  }, [router]);
+
+  const comparedPlansList = useMemo(() => {
+    return plans.filter((p) => compareIds.includes(p.id));
+  }, [plans, compareIds]);
+
+  const friendlyTierName = useMemo(() => {
+    const t = (tier || 'MEDIUM').toUpperCase();
+    if (t === 'LOW') return 'Low Risk';
+    if (t === 'MEDIUM') return 'Moderate Risk';
+    if (t === 'HIGH') return 'High Risk';
+    if (t === 'CRITICAL') return 'Critical Risk';
+    return tier;
+  }, [tier]);
+
+  const computedFeatureImportances = useMemo(() => {
+    if (featureImportances) return featureImportances;
+    
+    const importances: Record<string, number> = {};
+    let total = 0;
+    
+    if (vitals.hba1c) {
+      const weight = vitals.hba1c >= 6.5 ? 0.35 : vitals.hba1c >= 5.7 ? 0.20 : 0.05;
+      importances["HbA1c (Sugar)"] = weight;
+      total += weight;
+    }
+    if (vitals.bmi) {
+      const weight = vitals.bmi >= 30 ? 0.25 : vitals.bmi >= 25 ? 0.15 : 0.05;
+      importances["Body Mass Index"] = weight;
+      total += weight;
+    }
+    if (vitals.has_diabetes) {
+      const weight = 0.20;
+      importances["Diabetes Diagnosis"] = weight;
+      total += weight;
+    }
+    if (vitals.has_hypertension) {
+      const weight = 0.15;
+      importances["Hypertension"] = weight;
+      total += weight;
+    }
+    
+    const ageWeight = 0.15;
+    importances["Age Group"] = ageWeight;
+    total += ageWeight;
+    
+    const normalized: Record<string, number> = {};
+    for (const [key, val] of Object.entries(importances)) {
+      normalized[key] = val / total;
+    }
+    return normalized;
+  }, [featureImportances, vitals]);
+
+  const dynamicDescription = useMemo(() => {
+    const t = (tier || 'MEDIUM').toUpperCase();
+    const conditionParts = [];
+    if (vitals.has_diabetes || (vitals.hba1c && vitals.hba1c >= 6.5)) conditionParts.push("elevated HbA1c/diabetes indicator");
+    if (vitals.has_hypertension) conditionParts.push("hypertension risk factors");
+    if (vitals.bmi && vitals.bmi >= 25) conditionParts.push("elevated BMI readings");
+
+    const conditionText = conditionParts.length > 0 
+      ? ` driven by your ${conditionParts.join(" and ")}`
+      : "";
+
+    if (t === 'LOW') {
+      return `Your health profile indicates a low metabolic risk tier${conditionText}. Your recommended policies prioritize highly cost-effective, basic/standard plans with comprehensive wellness incentives and low premiums.`;
+    }
+    if (t === 'MEDIUM') {
+      return `Your health profile indicates a moderate metabolic risk tier${conditionText}. Your top recommended plans focus on immediate or shorter wait periods for chronic conditions with highly competitive room rent limits.`;
+    }
+    if (t === 'HIGH') {
+      return `Your health profile indicates a high metabolic risk tier${conditionText}. We recommend comprehensive coverage with Day 1 chronic condition protection and zero co-payments to avoid high out-of-pocket costs.`;
+    }
+    if (t === 'CRITICAL') {
+      return `Your health profile indicates a critical metabolic risk tier${conditionText}. We strongly recommend specialist plans that guarantee Day 1 covers for pre-existing diabetic/hypertension complications, and higher hospital network counts.`;
+    }
+    return `Your details indicate moderate metabolic readings. Your top recommended plans focus on immediate pre-existing coverage with little to no waiting period.`;
+  }, [tier, vitals]);
+
+  // AI Agent Form Submission
+  async function handleAgentSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!agentInput.trim() || isAgentLoading) return;
+
+    const currentInput = agentInput;
+    setAgentInput('');
+    setIsAgentLoading(true);
+    setAgentResponse(null);
+
+    const updatedHistory = [...agentChatHistory, { role: 'user', content: currentInput }];
+    setAgentChatHistory(updatedHistory);
+
+    try {
+      const sessionPayload = {
+        profile: {
+          age: vitals.age || 35,
+          bmi: vitals.bmi || 26.5,
+          smoker: vitals.smoker || 0,
+          hba1c: vitals.hba1c || 6.2,
+          bp_systolic: vitals.bp_systolic || 120,
+          diabetes: vitals.diabetes || (vitals.has_diabetes ? 1 : 0),
+          hypertension: vitals.hypertension || (vitals.has_hypertension ? 1 : 0),
+          chronic_count: vitals.chronic_count || 0,
+          monthly_budget: vitals.monthly_budget || 3000,
+          income_lakh: vitals.income_lakh || 8.0,
+        },
+        risk_data: {
+          risk_tier: tier,
+          risk_score: score / 100,
+          confidence_pct: score,
+          feature_importance_explanation: featureImportances,
+        },
+        current_plans: plans.map((p) => ({
+          id: p.id,
+          name: p.name,
+          insurer: p.insurer,
+          annual_premium: p.annual_premium,
+          coverage: p.coverage,
+          type: p.type,
+          pre_existing_wait_years: p.pre_existing_wait_years,
+          diabetes_day1: p.diabetes_day1,
+          hypertension_day1: p.hypertension_day1,
+          copayment_pct: p.copayment_pct,
+          room_rent_limit: p.room_rent_limit,
+          suitability_score: p.suitability_score,
+          warning_flags: p.warning_flags,
+        })),
+      };
+
+      const res = await callAgent(updatedHistory, sessionPayload);
+      
+      setAgentChatHistory([...updatedHistory, { role: 'assistant', content: res.response }]);
+      setAgentResponse(res.response);
+      setAgentToolUsed(res.tool_used);
+
+      // Dynamically Sync Agent Actions to frontend
+      if (res.updated_session) {
+        const { profile, risk_data, current_plans } = res.updated_session;
+        
+        if (profile) {
+          setVitals({
+            age: profile.age,
+            bmi: profile.bmi,
+            smoker: profile.smoker,
+            hba1c: profile.hba1c,
+            bp_systolic: profile.bp_systolic,
+            has_diabetes: !!(profile.diabetes || profile.has_diabetes),
+            has_hypertension: !!(profile.hypertension || profile.has_hypertension),
+            chronic_count: profile.chronic_count,
+            monthly_budget: profile.monthly_budget,
+            income_lakh: profile.income_lakh,
+          });
+        }
+        
+        if (risk_data) {
+          setScore(risk_data.confidence_pct || Math.round(risk_data.risk_score * 100));
+          setTier(risk_data.risk_tier);
+          if (risk_data.feature_importance_explanation) {
+            setFeatureImportances(risk_data.feature_importance_explanation);
+          }
+        }
+        
+        if (current_plans && current_plans.length > 0) {
+          setPlans(current_plans);
+        }
+      }
+
+      if (res.tool_used === 'stress_test' && res.tool_result) {
+        const planId = res.tool_result.plan_id;
+        const matchedPlan = plans.find(p => p.id === planId) || res.updated_session?.current_plans?.find((p: any) => p.id === planId);
+        if (matchedPlan) {
+          if (res.tool_result.custom_details) {
+            setStressTestInitialScenario({
+              id: 'custom',
+              name: res.tool_result.scenario_name,
+              cost: res.tool_result.custom_details.cost,
+              days: res.tool_result.custom_details.days,
+              isChronic: res.tool_result.custom_details.isChronic
+            });
+          }
+          setSelectedPlanForStress(matchedPlan);
+        }
+      }
+
+      if (res.tool_used === 'compare' && res.tool_result?.plans) {
+        const planIds = res.tool_result.plans.map((p: any) => p.id);
+        planIds.forEach((id: number) => {
+          if (!compareIds.includes(id)) {
+            toggleCompare(id);
+          }
+        });
+        setIsCompareDrawerOpen(true);
+      }
+
+    } catch (err) {
+      console.error(err);
+      setAgentResponse("I encountered an issue connecting to my local Gemma backend. Please ensure Uvicorn is active on port 8000 and try again.");
+    } finally {
+      setIsAgentLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-white lg:flex relative">
+      <Sidebar />
+      <main className="flex-1 px-4 sm:px-8 py-8 lg:px-12 pb-24">
+        <div className="mx-auto max-w-[1100px]">
+          <header className="mb-12 flex flex-col gap-6 border-b border-neutral-200 pb-8 md:flex-row md:items-end md:justify-between">
+            <div>
+              <SectionEyebrow>Account Overview</SectionEyebrow>
+              <h1 className="mt-2 font-[var(--font-heading)] text-4xl font-black uppercase tracking-tight text-black md:text-5xl">
+                Hello, {name}.
+              </h1>
+            </div>
+            <div className="w-full md:max-w-[200px]">
+              <button 
+                onClick={() => router.push('/assessment')} 
+                className="mono-btn-primary"
+              >
+                Update Health Profile
+              </button>
+            </div>
+          </header>
+
+          {searchParams.get('mode') === 'simulated' && (
+            <div className="mb-8 border border-amber-200 bg-amber-50/45 p-4 flex items-start gap-3 animate-fadeIn" style={{ borderRadius: '2px' }}>
+              <span className="font-mono text-lg leading-none">⚠️</span>
+              <div className="space-y-1">
+                <span className="font-mono text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
+                  FastAPI ML matching pipeline connection fallback active
+                </span>
+                <p className="font-mono text-[11px] text-amber-700 leading-4">
+                  The local XGBoost risk assessment and Gemma plain-English explanation backend was unreachable. 
+                  We have loaded simulated suitability matches and a fallback metabolic risk projection based on your inputs.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <section className="grid gap-12 lg:grid-cols-[1.5fr_1fr]">
+            <div className="space-y-10">
+              
+              {/* Risk Profile Card with 4-zone Divided Bar */}
+              <div className="bg-black text-white p-5 sm:p-8 space-y-6" style={{ borderRadius: '2px' }}>
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+                  <div className="space-y-2">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">My Health Risk</span>
+                    <h2 className="font-[var(--font-heading)] text-3xl font-black uppercase tracking-tight text-white">
+                      {friendlyTierName}
+                    </h2>
+                    <p className="font-mono text-xs text-neutral-300">Score: {score / 100} out of 1.0</p>
+                  </div>
+                  
+                  {/* Divided zone visual risk bar */}
+                  <div className="space-y-2 w-full md:max-w-[220px]">
+                    <div className="relative h-4 bg-neutral-800 flex" style={{ borderRadius: '2px' }}>
+                      {/* Zones */}
+                      <div className="h-full bg-neutral-700 w-1/4" title="Low Risk" />
+                      <div className="h-full bg-neutral-600 w-1/4" title="Moderate Risk" />
+                      <div className="h-full bg-neutral-500 w-1/4" title="High Risk" />
+                      <div className="h-full bg-neutral-400 w-1/4" title="Critical" />
+                      {/* White indicator pointer */}
+                      <div 
+                        className="absolute top-0 bottom-0 w-[3px] bg-white transition-all duration-700 ease-out"
+                        style={{ left: `calc(${score}% - 1.5px)` }}
+                      />
+                    </div>
+                    <div className="flex justify-between font-mono text-[8px] uppercase text-neutral-400">
+                      <span>Low</span>
+                      <span>Moderate</span>
+                      <span>High</span>
+                      <span>Critical</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="font-mono text-xs leading-6 text-neutral-400 border-t border-neutral-800 pt-4">
+                  {dynamicDescription}
+                </p>
+
+                {computedFeatureImportances && Object.keys(computedFeatureImportances).length > 0 && (
+                  <div className="border-t border-neutral-800 pt-4 space-y-3">
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-neutral-400 block">
+                      XGBoost Model Feature Attribution (SHAP Importance)
+                    </span>
+                    <div className="grid gap-3 sm:grid-cols-2 animate-fadeIn">
+                      {Object.entries(computedFeatureImportances).map(([feature, weight]) => {
+                        const pct = Math.round(weight * 100);
+                        return (
+                          <div key={feature} className="space-y-1 font-mono text-[10px]">
+                            <div className="flex justify-between text-neutral-300">
+                              <span className="uppercase tracking-tight">{feature}</span>
+                              <span>{pct}%</span>
+                            </div>
+                            <div className="h-1 bg-neutral-800 w-full" style={{ borderRadius: '1px' }}>
+                              <div 
+                                className="h-full bg-white transition-all duration-500 ease-out" 
+                                style={{ width: `${pct}%`, borderRadius: '1px' }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Recommended plans matching section */}
+              <div>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block mb-6">Your Top Policy Matches</span>
+                
+                <div className="space-y-4">
+                  {plans.map((plan, index) => {
+                    const selected = isInCompare(plan.id);
+                    const reasoning = plan.plain_english_explanation || generateOnDeviceReasoning(plan, vitals);
+                    
+                    return (
+                      <div 
+                        key={String(plan.id)} 
+                        className={`border cursor-pointer p-6 bg-white hover:border-black transition-all flex flex-col gap-4 ${
+                          selected ? 'border-black bg-neutral-50/70 border-[3px]' : 'border-neutral-200'
+                        }`}
+                        style={{ borderRadius: '2px' }}
+                      >
+                        {/* Top row */}
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-[9px] bg-neutral-100 px-2 py-0.5" style={{ borderRadius: '2px' }}>
+                                Match 0{index + 1}
+                              </span>
+                              <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400">
+                                {plan.insurer}
+                              </span>
+                              {selected && (
+                                <span className="font-mono text-[9px] uppercase font-bold text-black bg-neutral-200 px-1.5 py-0.5" style={{ borderRadius: '2px' }}>
+                                  ✓ Added to Compare
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="font-[var(--font-heading)] text-lg font-bold text-black uppercase tracking-tight">
+                              {plan.name}
+                            </h3>
+                            {plan.warning_flags && plan.warning_flags.length > 0 && (
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {plan.warning_flags.map((flag: string) => (
+                                  <span 
+                                    key={flag} 
+                                    className="font-mono text-[9px] uppercase tracking-wide bg-amber-50 text-amber-700 border border-amber-200/60 px-2 py-0.5 flex items-center gap-1"
+                                    style={{ borderRadius: '2px' }}
+                                  >
+                                    ⚠️ {flag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-6 justify-between md:justify-end">
+                            {plan.cosine_similarity !== undefined && (
+                              <div className="text-right border-r border-neutral-200 pr-6">
+                                <span className="font-mono text-2xl font-black block text-black">
+                                  {Math.round(plan.cosine_similarity * 100)}%
+                                </span>
+                                <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">
+                                  Semantic Fit
+                                </span>
+                              </div>
+                            )}
+                            <div className="text-right">
+                              <span className="font-mono text-2xl font-black block text-black">
+                                {(plan.suitability_score || 8.4).toFixed(1)}
+                              </span>
+                              <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">
+                                Match Score
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Middle Row (Key Facts) */}
+                        <div className="grid grid-cols-3 border-t border-b border-neutral-100 py-3 font-mono text-[11px] text-neutral-500">
+                          <div>
+                            <span className="text-[9px] text-neutral-400 uppercase block">Premium</span>
+                            <span className="text-black font-semibold">₹{plan.annual_premium.toLocaleString('en-IN')}/year</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-neutral-400 uppercase block">Total Coverage</span>
+                            <span className="text-black font-semibold">₹{plan.coverage.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-neutral-400 uppercase block">Waiting Period</span>
+                            <span className="text-black font-semibold uppercase">
+                              {plan.diabetes_day1 ? 'None (Day 1)' : `${plan.pre_existing_wait_years ?? plan.preexisting_wait_years ?? 4} Years`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* AI Reasoning Block */}
+                        <div className="font-mono text-[11px] leading-5 text-neutral-600 bg-neutral-50 p-3" style={{ borderRadius: '2px' }}>
+                          <span className="font-bold text-black uppercase text-[9px] tracking-wider block mb-1">Why this plan is a great fit:</span>
+                          <p>{reasoning}</p>
+                        </div>
+
+                        {/* Card bottom actions */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/explorer/${plan.id}`);
+                            }}
+                            className="h-9 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer"
+                            style={{ borderRadius: '2px' }}
+                          >
+                            Details
+                          </button>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCompare(plan.id);
+                            }}
+                            className={`h-9 font-mono text-[10px] uppercase tracking-wider transition-all border cursor-pointer ${
+                              selected 
+                                ? 'bg-black text-white border-black' 
+                                : 'border-neutral-200 hover:border-black text-black bg-white'
+                            }`}
+                            style={{ borderRadius: '2px' }}
+                          >
+                            {selected ? '✓ Added' : 'Compare'}
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedPlanForStress(plan);
+                            }}
+                            className="h-9 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer"
+                            style={{ borderRadius: '2px' }}
+                          >
+                            Stress Test
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open('https://www.hdfcergo.com/health-insurance', '_blank');
+                            }}
+                            className="h-9 border border-black bg-black text-white hover:bg-neutral-800 font-mono text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
+                            style={{ borderRadius: '2px' }}
+                          >
+                            Buy Plan
+                          </button>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+
+            <aside className="space-y-8">
+              <AnnotationBox title="Why this matters">
+                We have analyzed your health vitals against dozens of policies. You can update your numbers anytime to recalculate your recommended matches.
+              </AnnotationBox>
+              <div className="border border-neutral-200 p-6 bg-neutral-50" style={{ borderRadius: '2px' }}>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block mb-4">My Health Numbers</span>
+                <div className="space-y-3 font-mono text-xs">
+                  <div className="flex justify-between border-b border-neutral-200 pb-2">
+                    <span className="text-neutral-400">HbA1c (Average Sugar)</span>
+                    <span className="font-bold text-black">{vitals.hba1c}%</span>
+                  </div>
+                  <div className="flex justify-between border-b border-neutral-200 pb-2">
+                    <span className="text-neutral-400">BMI (Body Mass Index)</span>
+                    <span className="font-bold text-black">{vitals.bmi} kg/m²</span>
+                  </div>
+                  <div className="flex justify-between border-b border-neutral-200 pb-2">
+                    <span className="text-neutral-400">Diabetes Cover</span>
+                    <span className="font-bold text-black uppercase">
+                      {vitals.has_diabetes ? 'Active' : 'No history'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pb-2">
+                    <span className="text-neutral-400">Hypertension Cover</span>
+                    <span className="font-bold text-black uppercase">
+                      {vitals.has_hypertension ? 'Active' : 'No history'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </section>
+        </div>
+      </main>
+
+      {/* Sticky Bottom Comparison Trigger */}
+      {compareIds.length >= 2 && (
+        <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-200 bg-white p-4 lg:left-[290px] z-50 animate-slideUp">
+          <div className="mx-auto max-w-[1100px] flex justify-between items-center">
+            <span className="font-mono text-xs uppercase tracking-widest text-black font-bold">
+              {compareIds.length} Plans Selected
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsCompareDrawerOpen(true)}
+                className="h-10 px-5 bg-black text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-wider"
+                style={{ borderRadius: '2px' }}
+              >
+                Compare Plans
+              </button>
+              <button
+                onClick={clearCompare}
+                className="h-10 px-4 border border-neutral-200 font-mono text-xs uppercase tracking-wider text-black hover:border-black"
+                style={{ borderRadius: '2px' }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal and Drawer mounts */}
+      <StressTestModal 
+        plan={selectedPlanForStress}
+        isOpen={!!selectedPlanForStress}
+        onClose={() => {
+          setSelectedPlanForStress(null);
+          setStressTestInitialScenario(undefined);
+        }}
+        initialScenario={stressTestInitialScenario}
+      />
+
+      <CompareDrawer 
+        plans={comparedPlansList}
+        isOpen={isCompareDrawerOpen}
+        onClose={() => setIsCompareDrawerOpen(false)}
+        onClear={clearCompare}
+        onSelectPlan={(id) => router.push(`/explorer/${id}`)}
+      />
+
+      {/* Floating Omnipresent AI Agent Bar */}
+      <div 
+        className={`fixed left-1/2 -translate-x-1/2 w-full max-w-[680px] px-4 sm:px-0 z-40 transition-all duration-300 ${
+          compareIds.length >= 2 ? 'bottom-24' : 'bottom-6'
+        }`}
+      >
+        {/* Agent Speech bubble */}
+        {agentResponse && (
+          <div className="mb-3 border-t-2 border-black bg-white shadow-xl p-4 relative animate-slideUp border border-neutral-200" style={{ borderRadius: '2px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setAgentResponse(null);
+                setAgentToolUsed(null);
+              }}
+              className="absolute right-3 top-3 font-mono text-[8px] uppercase tracking-widest text-neutral-400 hover:text-black transition-colors border border-neutral-200 px-1.5 py-0.5 rounded hover:border-black cursor-pointer bg-white"
+            >
+              [ Clear ]
+            </button>
+            <div className="flex items-start gap-2.5">
+              <div className="h-6 w-6 bg-black text-white flex items-center justify-center rounded shrink-0">
+                <Bot size={13} className="animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[9px] uppercase font-bold text-black tracking-wider">Outsurance Advisor</span>
+                  {agentToolUsed && (
+                    <span className="font-mono text-[8px] uppercase bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded border border-neutral-200">
+                      Action: {agentToolUsed}
+                    </span>
+                  )}
+                </div>
+                <p className="font-mono text-[11px] leading-5 text-black whitespace-pre-line pr-10">
+                  {agentResponse}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Input Bar */}
+        <form 
+          onSubmit={handleAgentSubmit}
+          className="relative flex items-center bg-white shadow-lg overflow-hidden border border-neutral-200 hover:border-black transition-all"
+          style={{ borderRadius: '2px' }}
+        >
+          {isAgentLoading && (
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-neutral-100 overflow-hidden">
+              <div className="h-full bg-black w-1/3 animate-pulse" />
+            </div>
+          )}
+          <div className="pl-4 pr-2 text-neutral-400 shrink-0">
+            <Sparkles size={14} className={isAgentLoading ? "animate-spin text-black" : "text-neutral-400"} />
+          </div>
+          <input
+            type="text"
+            value={agentInput}
+            onChange={(e) => setAgentInput(e.target.value)}
+            disabled={isAgentLoading}
+            placeholder="Ask AI Agent: 'reassess as smoker', 'stress test Plan 3 for cardiac', 'compare 1 vs 3'..."
+            className="w-full h-12 bg-white pr-4 py-3 font-mono text-[11px] sm:text-xs text-black placeholder-neutral-400 outline-none disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={isAgentLoading || !agentInput.trim()}
+            className="h-12 px-5 bg-black text-white hover:bg-neutral-900 transition-colors uppercase font-mono text-[10px] tracking-widest font-bold shrink-0 disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer border-l border-neutral-200"
+          >
+            {isAgentLoading ? (
+              <span>[ Thinking... ]</span>
+            ) : (
+              <>
+                <span>Send</span>
+                <Send size={10} />
+              </>
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <span className="h-8 w-8 border-2 border-black border-t-transparent animate-spin rounded-full" />
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
+  );
+}

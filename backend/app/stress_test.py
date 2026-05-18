@@ -1,4 +1,4 @@
-# Fidsurance — Stress Test Simulator
+# Outsurance — Stress Test Simulator
 # Calculates out-of-pocket cost for a given emergency scenario on a plan.
 # Used by /api/stress-test and the agent's stress_test tool.
 

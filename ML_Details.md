@@ -1,4 +1,4 @@
-# FIDSURANCE — ML Engine Design
+# OUTSURANCE — ML Engine Design
 ### "Train models using publicly available healthcare datasets to understand health risk profiles and care needs"
 > **PS Requirement:** Classification models, scoring systems, and similarity-based recommendation engines.
 > **Our answer:** We build ALL THREE — stacked into a pipeline.
@@ -355,6 +355,8 @@ Metrics to show judges:
 ```
 
 ---
+
+![Privacy Shield](frontend/public/shield-hero.png)
 
 ## The ML Pipeline as an Agent Tool
 

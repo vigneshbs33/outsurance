@@ -1,5 +1,7 @@
-# FIDSURANCE
+# OUTSURANCE
 ### AI-Powered Smart Insurance Recommendation Platform
+
+![Outsurance](frontend/public/fidsurance-logo.png)
 **Complete Project Report**
 **Fidelity Investments Hackathon 2026**
 
@@ -12,15 +14,15 @@ May 2026
 
 ## 1. Executive Summary
 
-Fidsurance is a full-stack, AI-assisted insurance recommendation platform built to solve one of India's most pervasive financial problems: millions of people are uninsured, underinsured, or overpaying for plans that do not match their actual health and financial profile. The root cause is fragmentation — individuals must visit multiple portals, decode jargon, and fill repetitive forms, often without any personalised guidance.
+Outsurance is a full-stack, AI-assisted insurance recommendation platform built to solve one of India's most pervasive financial problems: millions of people are uninsured, underinsured, or overpaying for plans that do not match their actual health and financial profile. The root cause is fragmentation — individuals must visit multiple portals, decode jargon, and fill repetitive forms, often without any personalised guidance.
 
-Fidsurance addresses this by creating a single intelligent platform that collects a user's health, demographic, and financial profile, uses a trained machine learning model to assess their individual risk, and surfaces the most suitable insurance plans with explainable, plain-English reasoning — delivered through a clean, intuitive mobile-first interface.
+Outsurance addresses this by creating a single intelligent platform that collects a user's health, demographic, and financial profile, uses a trained machine learning model to assess their individual risk, and surfaces the most suitable insurance plans with explainable, plain-English reasoning — delivered through a clean, intuitive mobile-first interface.
 
 **Key Innovation**: Lab reports are read entirely on the user's device using a conversational AI agent powered by Google Gemma. Only 8 anonymised health metrics are transmitted to the cloud for risk scoring. The user's document, name, and identifying information never leave their phone — a genuine, defensible privacy architecture.
 
 | Attribute | Value |
 |---|---|
-| **Platform Type** | Mobile App (React Native / Expo) + Web |
+| **Platform Type** | Web Application (Next.js 16 + TypeScript) |
 | **ML Model** | XGBoost — 4-tier health risk classification |
 | **Training Data** | 10,000 synthetic patient records (medically calibrated) |
 | **On-Device AI** | Google Gemma 3 (Gemini API / MediaPipe) |
@@ -50,18 +52,20 @@ Fidelity Investments posed Problem Statement #4 as follows:
 ### 2.3 The Scenario We Are Solving
 A 35-year-old with a family history of diabetes uploads their blood sugar report. The platform extracts their HbA1c of 6.2%, identifies pre-diabetic risk, and surfaces the top 5 plans ranked by suitability — with the explanation: *"Recommended because your HbA1c of 6.2% indicates pre-diabetic risk. This plan covers diabetes hospitalisation from day one, ensuring no waiting period if your condition progresses."* They compare two plans side-by-side and save their choice.
 
-Every design decision in Fidsurance is built around this scenario.
+Every design decision in Outsurance is built around this scenario.
 
 ---
 
 ## 3. Solution Overview
 
-### 3.1 What Fidsurance Does
-Fidsurance is a mobile-first application that takes a user from zero insurance knowledge to a ranked, explained shortlist of the best plans for their specific health situation — in under five minutes. The platform covers three core capabilities:
+### 3.1 What Outsurance Does
+Outsurance is a mobile-first application that takes a user from zero insurance knowledge to a ranked, explained shortlist of the best plans for their specific health situation — in under five minutes. The platform covers three core capabilities:
 
 1. **AI-Powered Health Extraction**: A conversational agent (Gemma 3) reads the user's uploaded lab report on-device, extracts key health indicators (HbA1c, blood pressure, BMI, glucose levels, condition mentions), and conducts a natural dialogue to fill in any missing values.
 2. **ML Risk Assessment and Plan Scoring**: An XGBoost classification model takes 8 health inputs and produces a risk tier (Low / Medium / High / Critical) and a risk score from 0 to 1. A separate scoring function then ranks all insurance plans in the database against the user's profile.
 3. **Explainable Recommendations**: For each recommended plan, Gemma generates a personalised 2-sentence plain-English explanation of why that plan fits the user's specific health profile. Every recommendation is transparent and specific — never generic.
+
+> **Screenshot**: Run `cd frontend && npm run dev`, navigate to `http://localhost:3000/dashboard`, and save to `frontend/public/screenshots/dashboard.png`. Then replace this block with: `![Dashboard](frontend/public/screenshots/dashboard.png)`
 
 ### 3.2 Key Differentiators from Competing Solutions
 
@@ -79,7 +83,7 @@ Fidsurance is a mobile-first application that takes a user from zero insurance k
 ## 4. System Architecture
 
 ### 4.1 Three-Layer Architecture
-Fidsurance is built on a deliberate three-layer architecture designed to maximise privacy without sacrificing functionality.
+Outsurance is built on a deliberate three-layer architecture designed to maximise privacy without sacrificing functionality.
 
 * **Layer 1 — Device (Edge)**
 All processing that involves raw health data runs on the user's device. This includes: PDF text extraction using pdf.js, health value parsing using pattern matching, and AI reasoning generation using the Gemma 3 model (Gemini API). The user's lab document, name, and identifiable information never leave this layer.
@@ -94,14 +98,14 @@ Stores user authentication (JWT), profile information, assessment results (risk 
 
 | Component | Technology & Rationale |
 |---|---|
-| **Mobile / Web Frontend** | React Native with Expo — single codebase for Android, iOS, and web browser |
+| **Mobile / Web Frontend** | Next.js 16 (App Router) + TypeScript — responsive web app for all browsers and devices |
 | **Backend API** | FastAPI (Python) — ML model is Python; FastAPI serves it with minimal overhead |
 | **Database + Auth** | Supabase — provides JWT authentication, PostgreSQL, and RLS in one free service |
 | **ML Model** | XGBoost — trains in minutes on a laptop, produces interpretable feature importance, no GPU required |
-| **PDF Extraction** | pdf.js (browser) + expo-document-picker — 100% on-device, zero API cost, works offline |
+| **PDF Extraction** | pdf.js (browser) — 100% on-device, zero API cost, works offline |
 | **On-Device AI** | Google Gemma 3 via Gemini API — conversational extraction agent and plan reasoning |
 | **Backend Hosting** | Railway — free tier, deploys from GitHub in under 10 minutes |
-| **Frontend Hosting** | Vercel — zero-config Expo web deployment |
+| **Frontend Hosting** | Vercel — zero-config Next.js deployment |
 
 ### 4.3 Data Flow End-to-End
 The complete data flow for a new user assessment:
@@ -178,7 +182,7 @@ The ML model produces a risk score. A separate, deterministic scoring function t
 ## 6. AI Health Agent — Gemma Integration
 
 ### 6.1 Two Roles for Gemma
-Google Gemma 3 powers two distinct AI functions within Fidsurance:
+Google Gemma 3 powers two distinct AI functions within Outsurance:
 1. **Step 3 — Conversational Extraction Agent**: After the user uploads their lab PDF, Gemma reads the extracted text and conducts a structured dialogue — confirming found values, asking for missing ones, and producing a summary for user verification before any data goes to the cloud.
 2. **Results Screen — Plan Reasoning Generator**: For each of the top 5 recommended plans, Gemma generates a personalised 2-sentence plain-English explanation of why that specific plan suits the user's specific health numbers.
 
@@ -201,8 +205,10 @@ For the hackathon, Gemma 3 is accessed via the Google Gemini API (gemini-1.5-fla
 
 ## 7. Privacy and Security Architecture
 
+![Privacy Architecture](frontend/public/shield-hero.png)
+
 ### 7.1 Privacy Design Philosophy
-Fidsurance was designed with privacy as a structural property, not a policy claim. The goal was to be able to truthfully say to any judge, regulator, or user: your medical document never left your device. This required making explicit design choices at every layer of the architecture.
+Outsurance was designed with privacy as a structural property, not a policy claim. The goal was to be able to truthfully say to any judge, regulator, or user: your medical document never left your device. This required making explicit design choices at every layer of the architecture.
 
 ### 7.2 Privacy Controls Implemented
 
@@ -224,7 +230,7 @@ Row Level Security is enabled on all five user-facing tables. Each table has a p
 
 ### 8.1 Must-Have Coverage (Fidelity PS Requirements)
 
-| Requirement | How Fidsurance Delivers It |
+| Requirement | How Outsurance Delivers It |
 |---|---|
 | **Secure JWT-based registration and login** | Supabase handles auth entirely. JWT issued on login, stored in AsyncStorage, sent as Bearer token with every API and database call. |
 | **Multi-step intake form for health, demographic, financial data** | 5-screen onboarding flow with back navigation, progress bar, and state persistence between steps. |
@@ -236,7 +242,7 @@ Row Level Security is enabled on all five user-facing tables. Each table has a p
 
 ### 8.2 Innovation Features
 * **Stress Test Simulator**: Any plan detail screen exposes a Stress Test button. The user selects a medical emergency scenario (5-day ICU, cardiac event, knee replacement, appendix surgery) with a realistic cost estimate. The simulator instantly calculates: total emergency cost, how much the plan covers, and what the user pays out-of-pocket. The out-of-pocket amount is coloured green (₹0), orange (up to ₹1 lakh), or red (above ₹1 lakh). A warning card appears for high out-of-pocket amounts recommending higher coverage.
-* **Conversational Health Agent (Step 3)**: Rather than showing users a form to fill in manually, Fidsurance presents a chat interface where Gemma initiates the conversation. The agent reads the uploaded report, confirms found values, asks for missing ones, and produces a verification summary — all in natural dialogue. This removes the intimidation of a medical form while ensuring completeness of the health profile.
+* **Conversational Health Agent (Step 3)**: Rather than showing users a form to fill in manually, Outsurance presents a chat interface where Gemma initiates the conversation. The agent reads the uploaded report, confirms found values, asks for missing ones, and produces a verification summary — all in natural dialogue. This removes the intimidation of a medical form while ensuring completeness of the health profile.
 * **Verification Screen (Step 4)**: The Step 4 screen is both a privacy control and a product trust moment. Every value that was extracted from the document is shown as an editable field with a confidence indicator. The user verifies accuracy before any data is sent to the server. This solves a real problem — if the extraction model misreads a number, the user catches it. Judges can be told truthfully: we never send unverified medical data to a risk model.
 
 ---
@@ -360,8 +366,8 @@ Each plan record contains: provider name, plan name, plan type, annual premium, 
 
 ## 16. Conclusion
 
-Fidsurance addresses a problem that affects hundreds of millions of people in India and is repeated across every country with a fragmented insurance market. The platform's core contribution is not a better search engine for insurance — it is a system that understands the user's health context and translates it into personalised, explainable recommendations that a person without insurance literacy can act on.
+Outsurance addresses a problem that affects hundreds of millions of people in India and is repeated across every country with a fragmented insurance market. The platform's core contribution is not a better search engine for insurance — it is a system that understands the user's health context and translates it into personalised, explainable recommendations that a person without insurance literacy can act on.
 
 The technical choices — on-device PDF extraction, Gemma-powered conversational agents, XGBoost risk classification, and ephemeral health data — are each defensible decisions made to serve the user's interest: speed, privacy, accuracy, and transparency. Together, they produce an experience that no existing insurance comparison portal in India currently offers.
 
-Fidsurance is not a prototype of what an AI insurance advisor could be. It is a working implementation of what it should be: transparent about its reasoning, private with sensitive data, and specific enough to be genuinely useful to a real user with a real health profile.
+Outsurance is not a prototype of what an AI insurance advisor could be. It is a working implementation of what it should be: transparent about its reasoning, private with sensitive data, and specific enough to be genuinely useful to a real user with a real health profile.

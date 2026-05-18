@@ -10,7 +10,7 @@ from scorer import rank_plans
 from plans_db import INSURANCE_PLANS
 
 def run_hackathon_demo():
-    print("STARTING FIDSURANCE HACKATHON DEMO SCENARIO\n")
+    print("STARTING OUTSURANCE HACKATHON DEMO SCENARIO\n")
     
     print("0:30 - 1:30: The Scenario")
     print("Introducing 'Arjun', a 45-year-old with a family history of diabetes.")
@@ -30,7 +30,7 @@ def run_hackathon_demo():
     print("Arjun hits 'Find Plans'. Querying FastAPI Backend...")
     
     # Load Model
-    model_path = os.path.join(os.path.dirname(__file__), "..", "fidsurance_model.json")
+    model_path = os.path.join(os.path.dirname(__file__), "..", "outsurance_model.json")
     if not os.path.exists(model_path):
         print("Error: XGBoost model not found. Please run 'python ml/train_model.py' first.")
         return

@@ -33,7 +33,7 @@ export default function PlanExplorerScreen({ navigation }) {
   const loadPlans = useCallback(async () => {
     try {
       // Try cache first (hackathon reliability)
-      const cached = await AsyncStorage.getItem('fidsurance_plans');
+      const cached = await AsyncStorage.getItem('outsurance_plans');
       if (cached) {
         const parsed = JSON.parse(cached);
         setPlans(parsed);
@@ -41,7 +41,7 @@ export default function PlanExplorerScreen({ navigation }) {
       }
       // Always try fresh fetch
       const fresh = await fetchAllPlans();
-      await AsyncStorage.setItem('fidsurance_plans', JSON.stringify(fresh));
+      await AsyncStorage.setItem('outsurance_plans', JSON.stringify(fresh));
       setPlans(fresh);
       applyFilters(fresh, search, activeType);
     } catch (err) {

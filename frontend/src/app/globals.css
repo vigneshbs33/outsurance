@@ -1,0 +1,359 @@
+@import "tailwindcss";
+
+:root {
+  --primary-black: #000000;
+  --secondary-black: #1a1a1a;
+  --charcoal: #2d2d2d;
+  --dark-grey: #404040;
+  --medium-grey: #595959;
+  --light-grey: #808080;
+  --lighter-grey: #b3b3b3;
+  --off-white: #f5f5f5;
+  --pure-white: #ffffff;
+
+  --sutera-black: #0D0D0D;
+  --sutera-green: #1E5B3B;
+  --sutera-bg: #eeeeee;
+  --sutera-grey: #888888;
+  --sutera-light-grey: #CCCCCC;
+
+  --font-heading: var(--font-display), sans-serif;
+  --font-body: var(--font-body), sans-serif;
+  --font-mono: var(--font-mono), monospace;
+  --font-space-mono: var(--font-space-mono), monospace;
+
+  /* Classic system mappings for high-fidelity fallback */
+  --ink: var(--primary-black);
+  --surface: var(--pure-white);
+  --white: var(--pure-white);
+  --green: var(--primary-black);
+  --green-light: var(--off-white);
+  --ghost: var(--lighter-grey);
+  --dim: var(--light-grey);
+  --border: var(--off-white);
+}
+
+@theme {
+  --color-primary-black: var(--primary-black);
+  --color-secondary-black: var(--secondary-black);
+  --color-charcoal: var(--charcoal);
+  --color-dark-grey: var(--dark-grey);
+  --color-medium-grey: var(--medium-grey);
+  --color-light-grey: var(--light-grey);
+  --color-lighter-grey: var(--lighter-grey);
+  --color-off-white: var(--off-white);
+  --color-pure-white: var(--pure-white);
+
+  --color-sutera-black: var(--sutera-black);
+  --color-sutera-green: var(--sutera-green);
+  --color-sutera-bg: var(--sutera-bg);
+  --color-sutera-grey: var(--sutera-grey);
+  --color-sutera-light-grey: var(--sutera-light-grey);
+
+  --font-space-mono: var(--font-space-mono);
+  --font-display: var(--font-display);
+  --font-condensed: var(--font-condensed);
+  --font-serif: var(--font-serif);
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--lighter-grey);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body), sans-serif;
+  background-color: var(--pure-white);
+  color: var(--primary-black);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+a,
+select,
+input[type="submit"],
+input[type="button"],
+input[type="checkbox"],
+input[type="radio"],
+[role="button"],
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  border-radius: 2px !important;
+}
+
+::selection {
+  background: var(--primary-black);
+  color: var(--pure-white);
+}
+
+/* Page structure & Framing Overlays */
+.page-shell {
+  min-height: 100vh;
+  background-color: var(--pure-white);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.page-content {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.page-overlay {
+  display: none !important;
+}
+
+/* Crosshair Positioning Markers */
+.crosshair-marker {
+  position: absolute;
+  color: var(--primary-black);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+/* Typography & Hero Headings */
+.hero-hybrid {
+  font-family: var(--font-heading), sans-serif;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  color: var(--primary-black);
+}
+
+.hero-hybrid em {
+  font-style: normal;
+  color: var(--light-grey);
+}
+
+.eyebrow {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--light-grey);
+  margin-bottom: 8px;
+}
+
+/* Annotation Layout Box */
+.annotation-box {
+  border: 1px solid var(--lighter-grey);
+  background-color: var(--pure-white);
+  padding: 16px;
+  position: relative;
+  border-radius: 2px;
+  transition: border-color 0.2s ease;
+}
+
+.annotation-box:hover {
+  border-color: var(--primary-black);
+}
+
+.annotation-header {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--light-grey);
+  margin-bottom: 8px;
+}
+
+.annotation-body {
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--primary-black);
+}
+
+/* Forms Fields & Sizing Frameworks */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.field-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--light-grey);
+}
+
+.field-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--lighter-grey);
+  background: transparent;
+  padding: 10px 0;
+  color: var(--primary-black);
+  outline: none;
+  font-size: 14px;
+  transition: border-bottom-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0 !important; /* Force clean flat bottom bordered look */
+}
+
+.field-input:focus {
+  border-bottom: 2px solid var(--primary-black);
+}
+
+select.field-input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0px center;
+  background-size: 12px;
+  padding-right: 20px;
+}
+
+/* Primary and Secondary button elements */
+.btn-primary, .mono-btn-primary {
+  width: 100%;
+  background: var(--primary-black) !important;
+  color: var(--pure-white) !important;
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  font-weight: 550;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary:hover, .mono-btn-primary:hover {
+  background-color: var(--secondary-black) !important;
+}
+
+.btn-primary:active, .mono-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary, .mono-btn-secondary {
+  width: 100%;
+  background: var(--pure-white) !important;
+  color: var(--primary-black) !important;
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  font-weight: 550;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--primary-black) !important;
+  border-radius: 2px;
+  cursor: pointer !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-secondary:hover, .mono-btn-secondary:hover {
+  background-color: var(--off-white) !important;
+}
+
+.btn-secondary:active, .mono-btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Custom premium classes for card-based blocks */
+.mono-card {
+  background-color: var(--pure-white);
+  border: 1px solid var(--lighter-grey);
+  border-radius: 2px;
+  padding: 20px;
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mono-card:hover {
+  border-color: var(--primary-black);
+}
+
+.mono-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  background-color: var(--off-white);
+  color: var(--primary-black);
+  border-radius: 2px;
+  border: 1px solid var(--lighter-grey);
+}
+
+/* Custom micro-animations */
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-slideDown {
+  animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.35s ease forwards;
+}
+
+/* Automatically scale up tiny custom text utilities for premium readability */
+[class*="text-[8px]"] {
+  font-size: 10px !important;
+}
+[class*="text-[9px]"] {
+  font-size: 11px !important;
+}
+[class*="text-[10px]"] {
+  font-size: 12px !important;
+}
+[class*="text-[11px]"] {
+  font-size: 13px !important;
+}
