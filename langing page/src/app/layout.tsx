@@ -10,8 +10,9 @@ const dmSans = DM_Sans({ subsets: ['latin'], weight: ['400', '500', '700'], vari
 const spaceMono = Space_Mono({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-space-mono' });
 
 export const metadata: Metadata = {
-  title: 'Outsurance',
-  description: 'Editorial health insurance frontend built around zero-knowledge assessment flows.',
+  title: 'Fidsurance — AI Health Insurance Matching',
+  description: 'Upload your health report. Get AI-matched insurance plans in minutes. No calls. No confusion. No paperwork.',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=5',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

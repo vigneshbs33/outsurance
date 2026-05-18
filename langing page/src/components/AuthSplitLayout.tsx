@@ -125,7 +125,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
   }
 
   return (
-    <div ref={pageRef} className="min-h-screen w-screen overflow-hidden flex md:grid md:grid-cols-2 relative bg-[#F7F7F5] md:bg-white">
+    <div ref={pageRef} className="min-h-screen w-full overflow-hidden flex md:grid md:grid-cols-2 relative bg-[#F7F7F5] md:bg-white">
       
       <div className="absolute top-8 right-8 z-50 flex items-center gap-2 select-none cursor-pointer" onClick={() => router.push('/')}>
         <img src="/fidsurance-logo.png" alt="Outsurance Logo" className="h-8 w-auto object-contain" />

@@ -488,7 +488,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div ref={pageRef} className="w-screen min-h-screen overflow-x-hidden bg-sutera-bg scroll-smooth pt-20">
+    <div ref={pageRef} className="w-full min-h-screen overflow-x-hidden bg-sutera-bg scroll-smooth pt-20">
       
       {/* CINEMATIC WEBSITE LOADER */}
       {loading && (
@@ -713,10 +713,10 @@ export default function LandingPage() {
       </AnimatePresence>
 
       {/* SECTION 1 — HERO */}
-      <div className="w-screen h-screen overflow-hidden bg-sutera-bg relative select-none cursor-crosshair">
+      <div className="w-full min-h-screen h-screen overflow-hidden bg-sutera-bg relative select-none cursor-crosshair">
 
-        <div className="absolute left-6 top-[16%] md:top-1/2 md:-translate-y-[60%] z-10 flex flex-col pointer-events-none select-none max-w-[85vw] md:max-w-[40vw]">
-          <h1 className="leading-[0.95] tracking-tighter text-[clamp(28px,6.5vw,42px)] md:text-[clamp(44px,5.8vw,80px)]">
+        <div className="absolute left-4 sm:left-6 top-[12%] sm:top-[16%] md:top-1/2 md:-translate-y-[60%] z-10 flex flex-col pointer-events-none select-none max-w-[90vw] sm:max-w-[85vw] md:max-w-[40vw]">
+          <h1 className="leading-[0.95] tracking-tighter text-[clamp(26px,7vw,44px)] sm:text-[clamp(30px,6.5vw,52px)] md:text-[clamp(44px,5.8vw,80px)]">
             <div className="overflow-hidden">
               <span className="hero-word inline-block font-black uppercase text-sutera-black">
                 YOUR HEALTH,
@@ -729,16 +729,31 @@ export default function LandingPage() {
               </span>
             </div>
           </h1>
-          <div className="mt-6 md:mt-10 font-space-mono text-[9px] md:text-[11px] text-sutera-grey tracking-wider leading-relaxed max-w-[180px] md:max-w-[200px] pointer-events-auto">
+          <div className="mt-4 sm:mt-6 md:mt-10 font-space-mono text-[10px] sm:text-[11px] text-sutera-grey tracking-wider leading-relaxed max-w-[200px] md:max-w-[200px] pointer-events-auto">
             <div>UPLOAD YOUR HEALTH REPORT.</div>
             <div>GET THE RIGHT PLAN.</div>
             <div>IN MINUTES.</div>
           </div>
+          {/* Mobile CTA buttons — visible only on small screens */}
+          <div className="flex flex-row gap-3 mt-6 pointer-events-auto md:hidden">
+            <button
+              onClick={() => window.location.href = 'https://github.com/vigneshbs33/fidsurance/'}
+              className="font-space-mono text-[10px] font-bold uppercase tracking-wider border border-black/20 px-4 py-2 rounded-full text-neutral-700 bg-white/70 backdrop-blur-sm hover:border-black/40 transition-colors cursor-pointer"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => router.push('/register')}
+              className="font-space-mono text-[10px] font-bold uppercase tracking-wider bg-[#1E5B3B] text-white px-4 py-2 rounded-full shadow-sm hover:bg-[#256c45] transition-colors cursor-pointer"
+            >
+              Start Free →
+            </button>
+          </div>
         </div>
 
-        <div className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 w-[92vw] md:w-[clamp(450px,50vw,780px)] aspect-video z-[2] pointer-events-none select-none">
+        <div className="absolute right-0 bottom-0 top-[40%] sm:top-[30%] md:top-0 left-0 md:left-auto md:right-0 md:w-[55vw] md:h-full z-[2] pointer-events-none select-none opacity-60 sm:opacity-70 md:opacity-100">
           <div
-            className="hero-object w-full h-full overflow-hidden flex items-center justify-center rounded-none pointer-events-auto cursor-pointer transform-gpu will-change-transform"
+            className="hero-object w-full h-full overflow-hidden flex items-center justify-center pointer-events-auto cursor-pointer transform-gpu will-change-transform"
             onMouseEnter={handleObjectEnter}
             onMouseLeave={handleObjectLeave}
           >
@@ -749,7 +764,7 @@ export default function LandingPage() {
               loop
               muted
               playsInline
-              className="w-full h-full object-top origin-top scale-[1.18] pointer-events-none transform-gpu will-change-transform"
+              className="w-full h-full object-cover md:object-top md:origin-top md:scale-[1.1] pointer-events-none transform-gpu will-change-transform"
             />
           </div>
         </div>
@@ -926,7 +941,7 @@ export default function LandingPage() {
           <div className="font-bold">YOUR PHONE</div>
         </div>
 
-        <div className="absolute bottom-[8%] md:bottom-8 left-6 z-10 select-none">
+        <div className="absolute bottom-[8%] md:bottom-8 left-4 sm:left-6 z-10 select-none">
           <div className="font-space-mono text-[10px] md:text-[11px] text-sutera-black mb-2 tracking-wider font-bold">
             [ HOW IT WORKS ]
           </div>
@@ -956,7 +971,7 @@ export default function LandingPage() {
 
         {panelOpen ? (
           <div
-            className="info-panel absolute bottom-8 right-6 w-[200px] md:w-[220px] bg-pure-white border border-sutera-black p-4 z-10 select-none shadow-sm transition-all duration-300 pointer-events-auto"
+            className="info-panel absolute bottom-8 right-4 sm:right-6 w-[180px] sm:w-[200px] md:w-[220px] bg-pure-white border border-sutera-black p-4 z-10 select-none shadow-sm transition-all duration-300 pointer-events-auto"
             onMouseEnter={handlePanelEnter}
             onMouseLeave={handlePanelLeave}
           >
@@ -1055,7 +1070,7 @@ export default function LandingPage() {
       </div>
 
       {/* SECTION 2 — HOW IT WORKS */}
-      <div className="sec2-container min-h-screen w-screen bg-sutera-bg relative overflow-hidden py-28 px-6 sm:px-12 md:px-20 flex flex-col justify-center select-none z-0 border-t border-black/5">
+      <div className="sec2-container min-h-screen w-full bg-sutera-bg relative overflow-hidden py-16 sm:py-20 md:py-28 px-4 sm:px-8 md:px-20 flex flex-col justify-center select-none z-0 border-t border-black/5">
         
         {/* Ghost section title */}
         <div className="sec2-ghost-num absolute left-[6%] top-[30%] font-space-mono text-[180px] md:text-[250px] font-black text-black/[0.03] select-none pointer-events-none -z-10 leading-none">
@@ -1065,7 +1080,7 @@ export default function LandingPage() {
         <div className="max-w-[1200px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16 items-center relative z-10">
           
           {/* Diagonal steps list */}
-          <div className="lg:col-span-7 flex flex-col gap-16 lg:gap-20 relative min-h-[550px]">
+          <div className="lg:col-span-7 flex flex-col gap-10 sm:gap-14 lg:gap-20 relative min-h-[auto] lg:min-h-[550px]">
             
             {/* Dashed curved connector line (SVG) */}
             <svg className="absolute inset-0 pointer-events-none hidden lg:block -z-10 w-full h-full" viewBox="0 0 700 550">
@@ -1090,14 +1105,14 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: step.delay }}
-                className={`flex flex-col w-full max-w-[340px] bg-white/40 hover:bg-white/80 p-6 border border-black/[0.04] transition-colors duration-300 rounded-lg ${step.position}`}
+                className={`flex flex-col w-full max-w-full sm:max-w-[340px] bg-white/40 hover:bg-white/80 p-5 sm:p-6 border border-black/[0.04] transition-colors duration-300 rounded-lg ${step.position}`}
               >
                 <div className="font-space-mono text-[11px] text-neutral-400 tracking-widest uppercase mb-1">{step.num}</div>
-                <h3 className="font-sans font-black text-[38px] md:text-[44px] leading-[1.05] text-neutral-900 tracking-tighter uppercase">
+                <h3 className="font-sans font-black text-[28px] sm:text-[34px] md:text-[44px] leading-[1.05] text-neutral-900 tracking-tighter uppercase">
                   {step.tagline}
                   <span className="font-serif italic font-normal text-[#1E5B3B] block lowercase tracking-normal pl-1">{step.highlight}</span>
                 </h3>
-                <p className="font-sans text-[14px] text-neutral-500 max-w-[260px] mt-3 leading-relaxed">{step.body}</p>
+                <p className="font-sans text-[13px] sm:text-[14px] text-neutral-500 max-w-full sm:max-w-[260px] mt-3 leading-relaxed">{step.body}</p>
               </motion.div>
             ))}
           </div>
@@ -1121,32 +1136,32 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* SECTION 3 — WHAT YOU GET (Locked normal scroll horizontal pin) */}
+      {/* SECTION 3 — WHAT YOU GET */}
       <div className="sec3-scroll-container relative bg-sutera-bg z-0 border-t border-black/5">
         
-        {/* Sticky viewport container */}
-        <div className="h-screen w-screen overflow-hidden flex flex-col justify-center relative">
+        {/* Sticky viewport container — min-h on mobile, h-screen on desktop */}
+        <div className="min-h-[80vh] md:h-screen w-full overflow-hidden flex flex-col justify-center relative py-10 md:py-0">
           
           {/* Ghost section title */}
-          <div className="absolute right-[8%] top-[12%] font-space-mono text-[180px] md:text-[240px] font-black text-black/[0.03] select-none pointer-events-none -z-10 leading-none">
+          <div className="absolute right-[8%] top-[12%] font-space-mono text-[80px] sm:text-[140px] md:text-[240px] font-black text-black/[0.03] select-none pointer-events-none -z-10 leading-none">
             03
           </div>
 
           {/* Header Block */}
-          <div className="max-w-[1200px] w-full mx-auto px-6 sm:px-12 md:px-20 mb-8 select-none">
+          <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-8 md:px-20 mb-6 sm:mb-8 select-none">
             <span className="font-space-mono text-[11px] text-neutral-400 uppercase tracking-widest block mb-2">WHAT YOU GET</span>
-            <h2 className="font-sans font-black text-4xl md:text-6xl text-neutral-900 tracking-tight leading-none uppercase">
+            <h2 className="font-sans font-black text-3xl sm:text-4xl md:text-6xl text-neutral-900 tracking-tight leading-none uppercase">
               Plans that <span className="font-serif italic font-normal text-[#1E5B3B] block md:inline lowercase tracking-normal pl-1">actually fit you.</span>
             </h2>
           </div>
 
-          {/* Horizontal plan cards track wrapper */}
-          <div className="w-full overflow-hidden flex items-center">
-            <div className="sec3-track flex gap-8 px-6 sm:px-12 md:px-20 w-max">
+          {/* Horizontal plan cards track — touch-scrollable on mobile, GSAP-pinned on desktop */}
+          <div className="w-full overflow-x-auto md:overflow-hidden flex items-center pb-4 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
+            <div className="sec3-track flex gap-5 sm:gap-6 md:gap-8 px-4 sm:px-8 md:px-20 w-max">
               {plansData.map((card, idx) => (
                 <div
                   key={idx}
-                  className={`w-[360px] flex-shrink-0 border border-black/[0.06] rounded-[12px] p-8 shadow-sm flex flex-col justify-between relative min-h-[460px] select-none ${card.bg}`}
+                  className={`w-[85vw] sm:w-[360px] flex-shrink-0 border border-black/[0.06] rounded-[12px] p-8 shadow-sm flex flex-col justify-between relative min-h-[460px] select-none ${card.bg}`}
                 >
                   <div className="absolute top-6 right-8 font-space-mono text-[80px] font-black text-black/[0.03] select-none pointer-events-none -z-5 leading-none">
                     {card.num}
@@ -1200,10 +1215,10 @@ export default function LandingPage() {
       </div>
 
       {/* SECTION 4 — REAL FAMILIES */}
-      <div ref={sec4Ref} className="sec4-container relative min-h-screen w-screen flex flex-col md:flex-row bg-sutera-bg z-0 border-t border-black/5">
+      <div ref={sec4Ref} className="sec4-container relative min-h-screen w-full flex flex-col md:flex-row bg-sutera-bg z-0 border-t border-black/5">
         
         {/* Left Column (Sticky Cinematic Image) */}
-        <div className="w-full md:w-1/2 h-[50vh] md:h-screen md:sticky md:top-0 overflow-hidden relative select-none border-r border-black/5">
+        <div className="w-full md:w-1/2 h-[40vh] sm:h-[50vh] md:h-screen md:sticky md:top-0 overflow-hidden relative select-none border-r border-black/5">
           <motion.img
             src="/img_section4.png"
             alt="Indian Family Cinematic Golden Light"
@@ -1213,19 +1228,19 @@ export default function LandingPage() {
         </div>
 
         {/* Right Column (Scrollable Stacked Testimonials) */}
-        <div className="w-full md:w-1/2 px-6 sm:px-12 md:px-20 py-24 flex flex-col justify-center relative select-none">
-          <div className="absolute left-6 top-16 md:top-24 font-space-mono text-[160px] font-black text-black/[0.02] select-none pointer-events-none -z-10 leading-none">
+        <div className="w-full md:w-1/2 px-4 sm:px-8 md:px-20 py-12 sm:py-16 md:py-24 flex flex-col justify-center relative select-none">
+          <div className="absolute left-6 top-16 md:top-24 font-space-mono text-[80px] sm:text-[120px] md:text-[160px] font-black text-black/[0.02] select-none pointer-events-none -z-10 leading-none">
             04
           </div>
           
-          <div className="mb-12">
+          <div className="mb-8 sm:mb-12">
             <span className="font-space-mono text-[11px] text-neutral-400 uppercase tracking-widest block mb-2">REAL FAMILIES</span>
-            <h2 className="font-sans font-black text-4xl md:text-5xl text-neutral-900 tracking-tight leading-none uppercase">
+            <h2 className="font-sans font-black text-3xl sm:text-4xl md:text-5xl text-neutral-900 tracking-tight leading-none uppercase">
               Trusted by <span className="font-serif italic font-normal text-[#1E5B3B] block md:inline lowercase tracking-normal pl-1">thousands.</span>
             </h2>
           </div>
 
-          <div className="space-y-6 max-w-[420px]">
+          <div className="space-y-4 sm:space-y-6 max-w-full sm:max-w-[420px]">
             {testimonialsData.map((t, idx) => (
               <motion.div
                 key={idx}
@@ -1255,13 +1270,13 @@ export default function LandingPage() {
       </div>
 
       {/* SECTION 5 — GET PROTECTED TODAY */}
-      <div className="sec5-anchor w-screen bg-sutera-bg py-20 px-6 sm:px-12 select-none z-0 border-t border-black/5 flex justify-center items-center">
+      <div className="sec5-anchor w-full bg-sutera-bg py-10 sm:py-16 md:py-20 px-4 sm:px-8 md:px-12 select-none z-0 border-t border-black/5 flex justify-center items-center">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-[1140px] bg-[#1E5B3B] text-white rounded-[24px] py-24 px-6 md:px-16 shadow-[0_30px_70px_rgba(30,91,59,0.18)] relative overflow-hidden flex flex-col justify-center items-center text-center border border-white/5"
+          className="w-full max-w-[1140px] bg-[#1E5B3B] text-white rounded-[16px] sm:rounded-[24px] py-14 sm:py-20 md:py-24 px-6 sm:px-10 md:px-16 shadow-[0_30px_70px_rgba(30,91,59,0.18)] relative overflow-hidden flex flex-col justify-center items-center text-center border border-white/5"
         >
           {/* Decorative glowing gradient radial spot */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#2e8c56] rounded-full blur-[120px] opacity-35 pointer-events-none -z-20" />
@@ -1284,7 +1299,7 @@ export default function LandingPage() {
               READY?
             </motion.span>
             
-            <h2 className="font-sans font-black text-5xl md:text-8xl tracking-tight uppercase leading-[0.9] text-white overflow-hidden">
+            <h2 className="font-sans font-black text-4xl sm:text-5xl md:text-7xl lg:text-8xl tracking-tight uppercase leading-[0.9] text-white overflow-hidden">
               <motion.span
                 initial={{ y: 80, opacity: 0 }}
                 whileInView={{ y: 0, opacity: 1 }}
@@ -1350,9 +1365,9 @@ export default function LandingPage() {
       </div>
 
       {/* FOOTER */}
-      <footer className="bg-sutera-bg text-black pt-32 pb-16 px-8 sm:px-16 md:px-24 select-none relative z-0 border-t border-black/5">
+      <footer className="bg-sutera-bg text-black pt-16 sm:pt-24 md:pt-32 pb-10 sm:pb-16 px-4 sm:px-10 md:px-24 select-none relative z-0 border-t border-black/5">
         
-        <div className="max-w-[1200px] w-full mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-16 lg:gap-12 pb-24 border-b border-black/[0.08]">
+        <div className="max-w-[1200px] w-full mx-auto grid grid-cols-2 lg:grid-cols-12 gap-8 sm:gap-10 lg:gap-12 pb-12 sm:pb-16 md:pb-24 border-b border-black/[0.08]">
           
           {/* Column 1 — Brand */}
           <motion.div
@@ -1390,9 +1405,9 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-            className="lg:col-span-3 border-l border-black/[0.05] pl-0 md:pl-8"
+            className="col-span-1 lg:col-span-3 border-l border-black/[0.05] pl-0 sm:pl-5 md:pl-8"
           >
-            <span className="font-space-mono text-[10px] tracking-widest text-neutral-400 uppercase mb-5 block font-bold">PRODUCT</span>
+            <span className="font-space-mono text-[10px] tracking-widest text-neutral-400 uppercase mb-4 sm:mb-5 block font-bold">PRODUCT</span>
             <ul className="space-y-4 font-sans text-[14px] text-neutral-600">
               {["How It Works", "Find a Plan", "Compare Plans", "Risk Assessment", "Stress Test"].map((item, idx) => (
                 <li key={idx} className="overflow-hidden">
@@ -1414,9 +1429,9 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-            className="lg:col-span-2 border-l border-black/[0.05] pl-0 md:pl-8"
+            className="col-span-1 lg:col-span-2 border-l border-black/[0.05] pl-0 sm:pl-5 md:pl-8"
           >
-            <span className="font-space-mono text-[10px] tracking-widest text-neutral-400 uppercase mb-5 block font-bold">COMPANY</span>
+            <span className="font-space-mono text-[10px] tracking-widest text-neutral-400 uppercase mb-4 sm:mb-5 block font-bold">COMPANY</span>
             <ul className="space-y-4 font-sans text-[14px] text-neutral-600">
               {["About Us", "Privacy Policy", "Terms of Service", "Contact Us", "Careers"].map((item, idx) => (
                 <li key={idx} className="overflow-hidden">
@@ -1438,7 +1453,7 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-            className="lg:col-span-3 border-l border-black/[0.05] pl-0 md:pl-8 flex flex-col gap-5"
+            className="col-span-2 sm:col-span-2 lg:col-span-3 border-l border-black/[0.05] pl-0 sm:pl-5 md:pl-8 flex flex-col gap-4 sm:gap-5"
           >
             <div>
               <span className="font-space-mono text-[10px] tracking-widest text-neutral-400 uppercase mb-3 block font-bold">GET IN TOUCH</span>
