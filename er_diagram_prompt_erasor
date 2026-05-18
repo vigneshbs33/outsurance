@@ -1,77 +1,67 @@
 // Paste this into eraser.io → Diagram → Entity Relationship Diagram
+// Focus: database-first model with frontend/backend usage context
 
 erDiagram
     profiles {
         uuid id PK
         string full_name
+        date date_of_birth
+        string gender
         string city
-        timestamp created_at
+        numeric annual_income
+        numeric monthly_budget
+        timestamptz created_at
     }
 
     assessment_sessions {
         uuid id PK
         uuid user_id FK
         int age
-        float bmi
-        float hba1c
-        int bp_systolic
+        numeric bmi
         boolean smoker
+        numeric hba1c
+        int bp_systolic
         boolean has_diabetes
         boolean has_hypertension
         int chronic_count
-        int monthly_budget
-        float income_lakh
-        string coverage_for
-        int family_members
         string risk_tier
-        float risk_score
-        float confidence_pct
-        timestamp created_at
+        numeric risk_score
+        boolean vitals_deleted
+        timestamptz created_at
     }
 
     recommendations {
         uuid id PK
-        uuid assessment_id FK
+        uuid user_id FK
+        uuid session_id FK
+        string risk_tier
+        numeric risk_score
         jsonb top_plan_ids
-        float match_score
-        float suitability_score
-        float cosine_similarity_score
-        text plain_english_explanation
-        timestamp created_at
+        timestamptz created_at
     }
 
-    plan_bookmarks {
+    saved_plans {
         uuid id PK
         uuid user_id FK
-        int plan_id
-        timestamp bookmarked_at
+        string plan_id
+        timestamptz saved_at
     }
 
-    chat_messages {
-        uuid id PK
-        uuid assessment_id FK
-        uuid user_id FK
-        string role
-        text content
-        string tool_used
-        timestamp created_at
-    }
+    profiles ||--o{ assessment_sessions : "starts"
+    profiles ||--o{ recommendations : "owns"
+    profiles ||--o{ saved_plans : "bookmarks"
+    assessment_sessions ||--o| recommendations : "produces"
 
-    stress_test_results {
-        uuid id PK
-        uuid user_id FK
-        int plan_id
-        string scenario_name
-        int total_cost
-        int covered_amount
-        int out_of_pocket
-        string verdict
-        timestamp created_at
-    }
+// Frontend usage context
+// - /login and /register create auth user + profile
+// - /assessment writes assessment_sessions
+// - /dashboard reads latest recommendations
+// - /saved reads and toggles saved_plans
+// - /profile updates profiles
 
-    profiles ||--o{ assessment_sessions : "has"
-    assessment_sessions ||--o{ recommendations : "produces"
-    profiles ||--o{ plan_bookmarks : "saves"
-    assessment_sessions ||--o{ chat_messages : "contains"
-    profiles ||--o{ stress_test_results : "runs"
-    profiles ||--o{ chat_messages : "writes"
+// Backend usage context
+// - FastAPI /api/assess creates risk output and recommendation payload
+// - Supabase client saves assessment_sessions first
+// - Supabase client saves recommendations linked by session_id
+// - Backend /api/plans supplies plan catalog; plan details are not stored in Postgres
+// - Row Level Security restricts every row to its owning user
