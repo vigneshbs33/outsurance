@@ -10,6 +10,30 @@ import {
   LayoutDashboard, Compass, LogOut, Search, Filter, CheckCircle, AlertTriangle
 } from 'lucide-react';
 
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  label: string;
+  icon: React.ComponentType<any>;
+}
+
+function MetricCard({ title, value, label, icon: Icon }: MetricCardProps) {
+  return (
+    <div className="border border-neutral-200 bg-white p-6 transition-all hover:border-black flex flex-col justify-between h-36 rounded-[2px]">
+      <div className="flex items-start justify-between">
+        <div>
+          <span className="font-mono text-[9px] uppercase tracking-widest text-neutral-400 block">{title}</span>
+          <p className="mt-1 font-mono text-3xl font-black text-black">{value}</p>
+        </div>
+        <div className="h-8 w-8 bg-neutral-50 border border-neutral-100 flex items-center justify-center text-neutral-600 rounded">
+          <Icon size={16} />
+        </div>
+      </div>
+      <p className="font-mono text-[10px] text-neutral-500 uppercase tracking-tight">{label}</p>
+    </div>
+  );
+}
+
 export default function DedicatedAdminPortal() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
