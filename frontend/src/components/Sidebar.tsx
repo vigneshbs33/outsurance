@@ -12,7 +12,9 @@ const navItems = [
   { href: '/explorer', label: 'Plan Explorer', icon: Compass },
   { href: '/saved', label: 'Saved Plans', icon: Bookmark },
   { href: '/profile', label: 'Profile', icon: User },
+  { href: '/admin', label: 'Admin Operations', icon: Shield },
 ];
+
 
 export default function Sidebar() {
   const pathname = usePathname();
