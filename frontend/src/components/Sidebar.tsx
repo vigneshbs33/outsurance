@@ -33,11 +33,14 @@ export default function Sidebar() {
         .maybeSingle()
         .then(({ data }) => {
           if (!data?.full_name) return;
-          setName(data.full_name);
+          const raw = data.full_name as string;
+          const cleanName = raw.includes(' || ') ? raw.split(' || ')[0].trim() : raw.trim();
+          setName(cleanName);
           setInitials(
-            data.full_name
+            cleanName
               .split(' ')
-              .map((value: string) => value[0])
+              .filter((v: string) => v.length > 0)
+              .map((v: string) => v[0])
               .join('')
               .slice(0, 2)
               .toUpperCase()

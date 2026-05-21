@@ -10,6 +10,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<Record<string, any> | null>(null);
   const [profile, setProfile] = useState<Record<string, any> | null>(null);
+  const [cleanName, setCleanName] = useState('');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -18,7 +19,14 @@ export default function ProfilePage() {
         return;
       }
       setUser(user);
-      supabase.from('profiles').select('*').eq('id', user.id).maybeSingle().then(({ data }) => setProfile(data));
+      supabase.from('profiles').select('*').eq('id', user.id).maybeSingle().then(({ data }) => {
+        setProfile(data);
+        if (data?.full_name) {
+          const raw = data.full_name as string;
+          const parsed = raw.includes(' || ') ? raw.split(' || ')[0].trim() : raw.trim();
+          setCleanName(parsed);
+        }
+      });
     });
   }, [router]);
 
@@ -41,7 +49,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   <div className="flex flex-col md:flex-row md:justify-between border-b border-neutral-100 pb-3 gap-2">
                     <span className="font-mono text-xs text-neutral-400 uppercase tracking-wider">Full Name</span>
-                    <span className="font-mono text-xs font-bold text-black uppercase">{String(profile?.full_name || 'Anonymous Member')}</span>
+                    <span className="font-mono text-xs font-bold text-black uppercase">{cleanName || 'Anonymous Member'}</span>
                   </div>
                   <div className="flex flex-col md:flex-row md:justify-between border-b border-neutral-100 pb-3 gap-2">
                     <span className="font-mono text-xs text-neutral-400 uppercase tracking-wider">Email Address</span>
