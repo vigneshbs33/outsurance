@@ -16,6 +16,30 @@ type AssessmentVitals = {
   hypertension: number;
   chronic_count: number;
 };
+export type FullAssessmentData = AssessmentVitals & {
+  fullName?: string;
+  full_name?: string;
+  mobileNumber?: string;
+  mobile_number?: string;
+  coveredMembersList?: string[];
+  coveredMembers?: string[];
+  covered_members?: string[];
+  memberAges?: Record<string, number>;
+  member_ages?: Record<string, number>;
+  medicalHistory?: string[];
+  medical_history?: string[];
+  height?: number;
+  weight?: number;
+  language?: string;
+  groups?: Array<{ id: string; name: string; members: string[] }>;
+  memberMedicalHistory?: Record<string, string[]>;
+  memberVitals?: Record<string, Record<string, string>>;
+  memberDOBs?: Record<string, string>;
+  gender?: string;
+  city?: string;
+  income_lakh?: number;
+  monthly_budget?: number;
+};
 type RiskResult = {
   risk_tier: string;
   risk_score: number;
@@ -48,10 +72,40 @@ export async function upsertProfile(userId: string, fields: ProfileFields) {
 
 export async function saveAssessmentResult(
   userId: string,
-  vitals: AssessmentVitals,
+  vitals: FullAssessmentData,
   riskResult: RiskResult,
   topPlans: RecommendedPlan[]
 ) {
+  const meta = {
+    mobile_number: vitals.mobileNumber ?? vitals.mobile_number ?? '',
+    covered_members: vitals.coveredMembersList ?? vitals.coveredMembers ?? vitals.covered_members ?? [],
+    member_ages: vitals.memberAges ?? vitals.member_ages ?? {},
+    medical_history: vitals.medicalHistory ?? vitals.medical_history ?? [],
+    height: vitals.height ?? 0,
+    weight: vitals.weight ?? 0,
+    language: vitals.language ?? 'English',
+    groups: vitals.groups ?? [],
+    member_medical_history: vitals.memberMedicalHistory ?? {},
+    member_vitals: vitals.memberVitals ?? {},
+    member_dobs: vitals.memberDOBs ?? {},
+  };
+  const cleanName = vitals.fullName ?? vitals.full_name ?? 'Anonymous Member';
+  const serializedName = `${cleanName} || ${JSON.stringify(meta)}`;
+
+  const profileFields = {
+    full_name: serializedName,
+    gender: vitals.gender ?? '',
+    city: vitals.city ?? '',
+    annual_income: vitals.income_lakh ?? 0,
+    monthly_budget: vitals.monthly_budget ?? 0,
+  };
+
+  try {
+    await upsertProfile(userId, profileFields);
+  } catch (err) {
+    console.error(err);
+  }
+
   const { data: session, error: sessionErr } = await supabase
     .from('assessment_sessions')
     .insert({
