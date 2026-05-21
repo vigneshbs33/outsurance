@@ -33,7 +33,11 @@ METRICS_PATH = BASE / "model_metrics.json"
 
 FEATURES = [
     'age', 'bmi', 'hba1c', 'bp_systolic',
-    'smoker', 'has_diabetes', 'has_hypertension',
+    'smoker',
+    # has_diabetes and has_hypertension removed — now encoded inside
+    # condition_risk_score (0.42 and 0.35 weights). Keeping both would let
+    # XGBoost split on the binary flag instead of the continuous score,
+    # collapsing condition_risk_score importance back to near zero.
     'condition_risk_score',
     'bmi_age_interaction', 'metabolic_risk_score',
 ]

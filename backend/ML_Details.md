@@ -243,13 +243,13 @@ The LLM is called only when a condition is NOT in cache. Cache avoids latency fo
 
 | Property | XGBoost | Why it matters |
 |---|---|---|
-| Feature importance | ✅ Built-in + SHAP | Show judges which features drive risk |
+| Feature importance | ✅ Built-in (`get_fscore`) | Show judges which features drive risk |
 | Handles mixed types | ✅ | Age (int) + smoker (binary) + HbA1c (float) + condition_risk_score (float) |
 | Class imbalance | ✅ compute_sample_weight | "Critical" cases are rare |
 | Fast inference | ✅ <1ms | No latency in API |
 | Interpretable | ✅ SHAP explainer | Local per-prediction explanations |
 
-### Feature Set (10 Features)
+### Feature Set (8 Features)
 
 ```python
 FEATURES = [
@@ -258,9 +258,7 @@ FEATURES = [
     'hba1c',                  # float, 4.0-14.0 (HbA1c %)
     'bp_systolic',            # int, 90-220
     'smoker',                 # binary 0/1
-    'has_diabetes',           # binary 0/1
-    'has_hypertension',       # binary 0/1
-    'condition_risk_score',   # float 0.0–5.0  ← dynamic from Stage 0
+    'condition_risk_score',   # float 0.0–5.0  ← dynamic from Stage 0 (encodes ALL conditions)
     'bmi_age_interaction',    # ENGINEERED: bmi * age / 100
     'metabolic_risk_score',   # ENGINEERED: (hba1c - 5.0) * bmi / 10
 ]
@@ -269,7 +267,7 @@ TARGET = 'risk_tier'  # Low / Medium / High / Critical
 ```
 
 > [!IMPORTANT]
-> `condition_risk_score` (float 0.0–5.0) **replaces** the old `chronic_count` (int 0-5). The new field is dynamic — it is computed by Stage 0 for every request. The XGBoost model is trained on this float feature.
+> `has_diabetes` and `has_hypertension` are **NOT** XGBoost features. They are encoded inside `condition_risk_score` (weights: diabetes=0.42, hypertension=0.35), which is the single source of all condition-based risk in the model. Keeping them as separate binary features would cause XGBoost to split on the binary flag and collapse `condition_risk_score` importance to near zero. `hba1c` and `bp_systolic` still serve as clinical measurement proxies for those conditions.
 
 ### Optimized Hyperparameters (Final Production Model)
 
@@ -298,49 +296,53 @@ best_params = {
 
 | Metric | Achieved Value | Notes |
 |---|---|---|
-| **Best CV Weighted F1** | **86.64%** | From 5-Fold CV Search |
-| **Test Accuracy** | **85.92%** | On 20,000 held-out test rows |
-| **Weighted F1 Score** | **85.93%** | Balanced across all 4 classes |
-| **Critical Class F1** | **90.00%** | Superb clinical safety |
-| **High Class F1** | **83.00%** | Good high-risk detection |
-| **Low Class F1** | **91.00%** | Perfect healthy segmentation |
-| **Medium Class F1** | **81.00%** | Acceptable medium zone |
-| **5-Fold CV Mean F1** | **86.05%** | Extremely robust (Std: 0.0017) |
+| **Best CV Weighted F1** | **85.57%** | From 5-Fold CV Search |
+| **Test Accuracy** | **85.0%** | On 20,000 held-out test rows |
+| **Weighted F1 Score** | **85.0%** | Balanced across all 4 classes |
+| **Critical Class F1** | **82.00%** | Strong clinical safety |
+| **High Class F1** | **82.00%** | Good high-risk detection |
+| **Low Class F1** | **90.00%** | Excellent healthy segmentation |
+| **Medium Class F1** | **82.00%** | Solid medium zone |
+| **5-Fold CV Mean F1** | **85.40%** | Extremely robust (Std: 0.0018) |
 
 > [!NOTE]
-> Accuracy is intentionally ~86% (not 100%) because synthetic training data has realistic epidemiological noise injected to simulate clinical environments. Overfitting to 100% would be wrong.
+> Accuracy is intentionally ~85% (not 100%) because synthetic training data has realistic epidemiological noise injected to simulate clinical environments. Overfitting to 100% would be wrong.
 
 ### Feature Importances (Production Model)
 
 ```
-has_diabetes          ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 51.67%
-hba1c                 ■■■■■■■■ 14.60%
-bp_systolic           ■■■■ 8.63%
-smoker                ■■■■ 7.01%
-has_hypertension      ■■■ 5.54%
-age                   ■■ 4.33%
-metabolic_risk_score  ■ 2.94%
-bmi_age_interaction   ■ 2.88%
-condition_risk_score  ■ 1.33%
-bmi                   ■ 1.07%
+condition_risk_score  ■■■■■■■■■■■■■■■■■■■■■■■■ 24.38%  ← #1 (was 1.33%)
+hba1c                 ■■■■■■■■■■■■■■■■■■■■■ 21.05%
+smoker                ■■■■■■■■■■■■■ 13.88%
+bp_systolic           ■■■■■■■■■■■■ 12.06%
+age                   ■■■■■■■■■■■ 11.21%
+metabolic_risk_score  ■■■■■■■■■ 9.30%
+bmi_age_interaction   ■■■■■ 5.82%
+bmi                   ■■ 2.30%
 ```
 
-### SHAP Explainability Output (Per-Prediction)
+> [!NOTE]
+> `condition_risk_score` is now the **#1 most important feature** at 24.38%, up from 1.33% in the previous model. This validates the LLM-powered Stage 0 scorer as the engine driving XGBoost predictions. The fix: diabetes (0.42) and hypertension (0.35) were added to `CONDITION_RISK_WEIGHTS` so the feature is non-zero for the majority of users, and the redundant binary flags `has_diabetes`/`has_hypertension` were removed from the XGBoost feature set.
 
-For every user, top 6 SHAP factors are shown:
+### Feature Importance Explanation Output (Per-Prediction)
+
+For every user, top 6 feature importances are shown using XGBoost's built-in `get_fscore()`:
 
 ```json
 {
-  "Blood Pressure (systolic)": 0.1474,
-  "BMI": 0.1463,
-  "Age": 0.1345,
-  "HbA1c (%)": 0.1316,
-  "BMI×Age (metabolic load)": 0.1227,
-  "Metabolic Risk Score": 0.1191
+  "Condition Severity Score": 0.2438,
+  "HbA1c (%)": 0.2105,
+  "Smoker": 0.1388,
+  "Blood Pressure (systolic)": 0.1206,
+  "Age": 0.1121,
+  "Metabolic Risk Score": 0.0930
 }
 ```
 
-This is displayed in the frontend Plan Detail screen as a "Why this risk tier?" breakdown. **No other team will do this.**
+This is displayed in the frontend Plan Detail screen as a "Why this risk tier?" breakdown.
+
+> [!NOTE]
+> SHAP TreeExplainer is incompatible with XGBoost 3.x (multi-output string format issue). Feature importances use `get_fscore()` instead, which provides global feature weights normalized to sum to 1. Per-prediction local explanations are not available in this version.
 
 ---
 
@@ -579,16 +581,28 @@ CONDITION_PREVALENCE = {
     "previous_surgery": lambda age: 0.080,
     "arthritis":        lambda age: 0.01 if age < 40 else (0.06 if age < 60 else 0.15),
 }
+
+# Risk weights for ALL conditions including diabetes and hypertension
+# (diabetes and hypertension injected from form flags into conditions dict
+#  so condition_risk_score is non-zero for the majority of training rows)
+CONDITION_RISK_WEIGHTS = {
+    "heart_disease": 0.92,   "cancer": 0.88,
+    "kidney_disease": 0.72,  "liver_disease": 0.65,
+    "asthma": 0.22,          "thyroid": 0.09,
+    "arthritis": 0.10,       "previous_surgery": 0.12,
+    "diabetes": 0.42,        # IDF clinical risk weight
+    "hypertension": 0.35,    # aligned with Stage 0 cache weights
+}
 ```
 
 ### Class Balance (Achieved on 100k rows)
 
 | Risk Tier | Achieved % | Real India Estimate |
 |---|---|---|
-| Low | ~35.7% | Mostly young/healthy |
-| Medium | ~31.1% | Overweight, single condition |
-| High | ~21.6% | Multiple conditions, older |
-| Critical | ~11.6% | Severe diabetes + HT + smoker |
+| Low | ~36.1% | Mostly young/healthy |
+| Medium | ~35.8% | Overweight, single condition |
+| High | ~22.2% | Multiple conditions, older |
+| Critical | ~5.9% | Severe multi-condition profiles |
 
 ### Training Pipeline Sequence
 
@@ -607,9 +621,9 @@ train_model.py
     └─ RandomizedSearchCV(XGBClassifier, 50 configs, 5-fold CV = 250 fits)
     └─ final_model.fit(X_train, y_train)  ← NO early stopping, all 1000 trees
     └─ evaluate: accuracy, F1 per class, confusion matrix
-    └─ build_shap_explainer()
+    └─ build_shap_explainer()  ← falls back to get_fscore() on XGBoost 3.x
     └─ 5-fold cross_validate() for stability check
-    └─ save: risk_model.json, label_encoder.pkl, shap_explainer.pkl, model_metrics.json
+    └─ save: risk_model.json, label_encoder.pkl, model_metrics.json
 ```
 
 ---

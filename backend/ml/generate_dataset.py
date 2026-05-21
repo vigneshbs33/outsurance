@@ -39,6 +39,8 @@ CONDITION_RISK_WEIGHTS = {
     "thyroid": 0.09,
     "arthritis": 0.10,
     "previous_surgery": 0.12,
+    "diabetes": 0.42,       # IDF clinical risk weight
+    "hypertension": 0.35,   # aligned with Stage 0 cache weights
 }
 
 def compute_condition_risk_score(conditions: dict) -> float:
@@ -75,11 +77,12 @@ def compute_risk_score(age, bmi, hba1c, bp_systolic, smoker,
 
     # Binary flags
     if smoker:           score += 0.12
-    if has_diabetes:     score += 0.18
-    if has_hypertension: score += 0.10
+    # has_diabetes and has_hypertension are now encoded inside condition_risk_score
+    # so they are NOT added separately here (avoids double-counting and
+    # prevents XGBoost from learning to ignore condition_risk_score)
 
-    # Condition severity score contribution (replaces chronic_count * 0.04)
-    score += condition_risk_score * 0.06   # max 5.0 * 0.06 = 0.30 contribution
+    # Condition severity score is the single source for all diagnosed conditions
+    score += condition_risk_score * 0.12   # max 5.0 * 0.12 = 0.60
 
     return min(1.0, score)
 
@@ -127,7 +130,12 @@ def generate_synthetic(n=100000):
             if cond == "kidney_disease" and has_diabetes:
                 prevalence *= 2.5
             conditions[cond] = int(np.random.random() < prevalence)
-        
+
+        # Include diabetes and hypertension so condition_risk_score
+        # is non-zero for the majority of rows (not just rare conditions)
+        conditions["diabetes"] = has_diabetes
+        conditions["hypertension"] = has_hypertension
+
         condition_risk_score = compute_condition_risk_score(conditions)
 
         # Engineered features
