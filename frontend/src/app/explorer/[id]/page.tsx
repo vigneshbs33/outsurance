@@ -348,18 +348,29 @@ export default function PlanDetailPage({ params }: PageProps) {
             <div className="mx-auto max-w-[680px] flex gap-4">
               <button
                 onClick={handleToggleSave}
-                className="flex-1 h-11 border border-black font-mono text-xs uppercase tracking-wider text-black hover:bg-neutral-50 transition-colors"
-                style={{ borderRadius: '12px' }}
+                className="flex-1 h-11 border border-neutral-200 hover:border-black text-black bg-white font-mono text-xs uppercase tracking-wider transition-colors rounded-[2px]"
               >
                 {isSaved ? '✓ Saved' : 'Save Plan'}
               </button>
 
               <button
                 onClick={handleToggleCompare}
-                className="flex-1 h-11 bg-black text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-wider transition-all"
-                style={{ borderRadius: '12px' }}
+                className="flex-1 h-11 border border-neutral-200 hover:border-black text-black bg-white font-mono text-xs uppercase tracking-wider transition-colors rounded-[2px]"
               >
                 {isCompared ? '✓ Selected for Compare' : 'Add to Compare'}
+              </button>
+
+              <button
+                onClick={() => {
+                  if (plan.link) {
+                    window.open(plan.link, '_blank', 'noopener,noreferrer');
+                  } else {
+                    router.push(`/buy/${plan.id}`);
+                  }
+                }}
+                className="flex-1 h-11 bg-black text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-wider font-bold transition-all rounded-[2px]"
+              >
+                Buy Policy ›
               </button>
             </div>
           </div>

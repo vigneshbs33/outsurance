@@ -31,6 +31,11 @@
   --ghost: var(--lighter-grey);
   --dim: var(--light-grey);
   --border: var(--off-white);
+  --pb-blue: #0d3c94;
+  --pb-light-blue: #0078fd;
+  --pb-orange: #ff4f18;
+  --pb-bg-grey: #637588;
+  --pb-text-dark: #253858;
 }
 
 @theme {
@@ -49,6 +54,12 @@
   --color-sutera-bg: var(--sutera-bg);
   --color-sutera-grey: var(--sutera-grey);
   --color-sutera-light-grey: var(--sutera-light-grey);
+
+  --color-pb-blue: var(--pb-blue);
+  --color-pb-light-blue: var(--pb-light-blue);
+  --color-pb-orange: var(--pb-orange);
+  --color-pb-bg-grey: var(--pb-bg-grey);
+  --color-pb-text-dark: var(--pb-text-dark);
 
   --font-space-mono: var(--font-space-mono);
   --font-display: var(--font-display);

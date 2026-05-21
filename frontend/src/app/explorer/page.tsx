@@ -509,8 +509,21 @@ function ExplorerContent() {
                   <div className="space-y-4">
                     {/* View comprehensive details page link */}
                     <button 
+                      onClick={() => {
+                        if (activePlan.link) {
+                          window.open(activePlan.link, '_blank', 'noopener,noreferrer');
+                        } else {
+                          router.push(`/buy/${activePlan.id}`);
+                        }
+                      }}
+                      className="mono-btn-primary bg-black text-white hover:bg-neutral-900 transition-colors cursor-pointer w-full rounded-[2px] font-bold"
+                    >
+                      Buy Policy ›
+                    </button>
+
+                    <button 
                       onClick={() => router.push(`/explorer/${activePlan.id}`)}
-                      className="mono-btn-primary bg-black text-white hover:bg-neutral-900 transition-colors cursor-pointer w-full"
+                      className="w-full h-10 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer rounded-[2px]"
                     >
                       Open Policy Breakdown
                     </button>
@@ -518,20 +531,18 @@ function ExplorerContent() {
                     <div className="flex flex-col sm:flex-row gap-2">
                       <button 
                         onClick={() => toggleCompare(activePlan.id)} 
-                        className={`w-full sm:flex-1 h-10 font-mono text-[10px] uppercase tracking-wider transition-all border cursor-pointer ${
+                        className={`w-full sm:flex-1 h-10 font-mono text-[10px] uppercase tracking-wider transition-all border cursor-pointer rounded-[2px] ${
                           isInCompare(activePlan.id) 
                             ? 'bg-black text-white border-black' 
                             : 'border-neutral-200 hover:border-black text-black bg-white'
                         }`}
-                        style={{ borderRadius: '12px' }}
                       >
                         {isInCompare(activePlan.id) ? '✓ Added' : 'Add to Compare'}
                       </button>
 
                       <button 
                         onClick={() => setSelectedPlanForStress(activePlan)} 
-                        className="w-full sm:flex-1 h-10 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer"
-                        style={{ borderRadius: '12px' }}
+                        className="w-full sm:flex-1 h-10 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer rounded-[2px]"
                       >
                         Stress Test
                       </button>

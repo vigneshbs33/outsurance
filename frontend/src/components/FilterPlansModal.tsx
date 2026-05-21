@@ -26,6 +26,7 @@ export interface Plan {
   type?: string;
   claim_settlement_ratio?: number;
   cosine_similarity?: number;
+  link?: string;
   [key: string]: unknown;
 }
 

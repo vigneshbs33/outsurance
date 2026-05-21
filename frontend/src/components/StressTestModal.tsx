@@ -31,6 +31,7 @@ export interface Plan {
   cosine_similarity?: number;
   exclusions?: string[];
   claim_settlement_ratio?: number;
+  link?: string;
   [key: string]: unknown;
 }
 

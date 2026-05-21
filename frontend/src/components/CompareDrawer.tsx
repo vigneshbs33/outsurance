@@ -11,7 +11,7 @@ interface CompareDrawerProps {
   onSelectPlan?: (planId: number) => void;
 }
 
-export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelectPlan }: CompareDrawerProps) {
+export function CompareDrawer({ plans, isOpen, onClose, onClear, onSelectPlan }: CompareDrawerProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -28,7 +28,6 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
 
   if (!isOpen || plans.length === 0) return null;
 
-  // Row items definitions
   const rows = [
     {
       label: 'Monthly Premium',
@@ -107,33 +106,31 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/40 backdrop-blur-[1px] p-0 md:p-6 animate-fadeIn">
-      {/* Back drop closer */}
       <div className="absolute inset-0 -z-10" onClick={onClose} />
 
       <div 
-        className="w-full max-w-[800px] border-t-2 border-black bg-white p-6 shadow-2xl transition-all duration-300 md:max-h-[85vh] overflow-y-auto rounded-t-xl"
+        className="w-full max-w-[800px] border-t-4 border-[#0d3c94] bg-white p-6 shadow-2xl transition-all duration-300 md:max-h-[85vh] overflow-y-auto rounded-t-xl"
       >
         <header className="mb-6 flex justify-between items-center">
           <div>
-            <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)]">Compare Policies</span>
-            <h2 className="font-[var(--font-heading)] text-lg font-black uppercase tracking-tight text-black">
+            <span className="font-sans text-[10px] uppercase font-bold tracking-wider text-neutral-400">Compare Policies</span>
+            <h2 className="font-sans text-lg font-black uppercase tracking-tight text-neutral-800">
               Compare Policy Details
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="font-mono text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-black transition-colors"
+            className="font-sans text-xs uppercase font-bold text-neutral-400 hover:text-neutral-700 transition-colors"
           >
             [ Close ]
           </button>
         </header>
 
-        {/* Side-by-side Table */}
         <div className="overflow-x-auto border border-neutral-200 rounded-xl">
-          <table className="w-full min-w-[500px] border-collapse font-mono text-xs">
+          <table className="w-full min-w-[500px] border-collapse font-sans text-xs">
             <thead>
-              <tr className="border-b border-black bg-neutral-50">
-                <th className="p-3 text-left font-bold text-[var(--ink-mid)] uppercase tracking-widest text-[9px] w-[140px] sticky left-0 bg-neutral-50 z-10 border-r border-neutral-200">
+              <tr className="border-b border-neutral-200 bg-neutral-50">
+                <th className="p-3 text-left font-bold text-neutral-500 uppercase tracking-wider text-[10px] w-[140px] sticky left-0 bg-neutral-50 z-10 border-r border-neutral-200">
                   Policy Features
                 </th>
                 {plans.map((plan) => {
@@ -143,13 +140,13 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
                       key={plan.id}
                       onClick={() => setSelectedPlanId(plan.id)}
                       className={`p-3 text-center cursor-pointer transition-all border-r border-neutral-200 last:border-r-0 ${
-                        selected ? 'bg-neutral-100 font-bold' : 'hover:bg-neutral-50'
+                        selected ? 'bg-blue-50/50 font-bold border-b-2 border-b-[#0078fd]' : 'hover:bg-neutral-50'
                       }`}
                     >
-                      <span className="text-[9px] uppercase text-[var(--ink-soft)] tracking-wider block">
+                      <span className="text-[10px] uppercase text-neutral-400 font-semibold tracking-wider block">
                         {plan.insurer}
                       </span>
-                      <span className="font-bold text-black uppercase tracking-tight text-xs block mt-0.5">
+                      <span className="font-bold text-neutral-800 uppercase tracking-tight text-xs block mt-0.5">
                         {plan.name}
                       </span>
                     </th>
@@ -162,10 +159,10 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
                 <tr 
                   key={row.label} 
                   className={`border-b border-neutral-100 last:border-b-0 ${
-                    rIdx % 2 === 0 ? 'bg-white' : 'bg-neutral-50/50'
+                    rIdx % 2 === 0 ? 'bg-white' : 'bg-neutral-50/30'
                   }`}
                 >
-                  <td className="p-3 text-left font-bold text-black border-r border-neutral-200 sticky left-0 bg-white z-10">
+                  <td className="p-3 text-left font-bold text-neutral-700 border-r border-neutral-200 sticky left-0 bg-white z-10">
                     {row.label}
                   </td>
                   {plans.map((plan) => {
@@ -176,8 +173,8 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
                         key={plan.id}
                         onClick={() => setSelectedPlanId(plan.id)}
                         className={`p-3 text-center border-r border-neutral-200 last:border-r-0 cursor-pointer transition-colors ${
-                          isBestCell ? 'bg-neutral-100 text-black font-semibold' : 'text-neutral-600'
-                        } ${selected && !isBestCell ? 'bg-neutral-50' : ''}`}
+                          isBestCell ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-neutral-600'
+                        } ${selected && !isBestCell ? 'bg-blue-50/20' : ''}`}
                       >
                         {row.getValue(plan)}
                       </td>
@@ -189,14 +186,12 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
           </table>
         </div>
 
-        {/* Scroll Help Text */}
         <div className="mt-2 text-center md:hidden">
-          <span className="font-mono text-[9px] text-[var(--ink-soft)] uppercase tracking-widest">
-            Scroll table horizontally to compare →
+          <span className="font-sans text-[10px] text-neutral-400 uppercase tracking-widest">
+            Scroll table horizontally to compare &rarr;
           </span>
         </div>
 
-        {/* Sticky Actions */}
         <div className="mt-6 flex flex-col sm:flex-row gap-3 pt-6 border-t border-neutral-200">
           <button
             onClick={() => {
@@ -206,7 +201,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
               }
             }}
             disabled={!selectedPlanId}
-            className="flex-1 h-11 bg-black text-white hover:bg-neutral-900 transition-colors uppercase font-mono text-xs tracking-wider disabled:opacity-30 disabled:cursor-not-allowed rounded-xl"
+            className="flex-1 h-11 bg-[#ff4f18] text-white hover:bg-orange-600 transition-colors uppercase font-bold text-xs tracking-wider disabled:opacity-30 disabled:cursor-not-allowed rounded-xl shadow-md shadow-orange-500/10"
           >
             View Full Policy Details
           </button>
@@ -216,7 +211,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
               onClear();
               onClose();
             }}
-            className="h-11 px-6 border border-neutral-200 text-black hover:border-black transition-colors uppercase font-mono text-xs tracking-wider rounded-xl"
+            className="h-11 px-6 border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors uppercase font-bold text-xs tracking-wider rounded-xl"
           >
             Clear Selection
           </button>
@@ -225,3 +220,5 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
     </div>
   );
 }
+
+export default CompareDrawer;
