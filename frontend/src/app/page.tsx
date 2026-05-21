@@ -24,7 +24,7 @@ const LetterStagger = ({ word }: { word: string }) => {
   };
   const item = {
     hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { ease: [0.16, 1, 0.3, 1] as any, duration: 0.5 } }
+    show: { opacity: 1, y: 0, transition: { ease: [0.16, 1, 0.3, 1], duration: 0.5 } }
   };
 
   return (
@@ -1092,12 +1092,12 @@ export default function LandingPage() {
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: step.delay }}
                 className={`flex flex-col w-full max-w-[340px] bg-white/40 hover:bg-white/80 p-6 border border-black/[0.04] transition-colors duration-300 rounded-lg ${step.position}`}
               >
-                <div className="font-space-mono text-[11px] text-[var(--ink-soft)] tracking-widest uppercase mb-1">{step.num}</div>
+                <div className="font-space-mono text-[11px] text-neutral-400 tracking-widest uppercase mb-1">{step.num}</div>
                 <h3 className="font-sans font-black text-[38px] md:text-[44px] leading-[1.05] text-neutral-900 tracking-tighter uppercase">
                   {step.tagline}
                   <span className="font-serif italic font-normal text-[#1E5B3B] block lowercase tracking-normal pl-1">{step.highlight}</span>
                 </h3>
-                <p className="font-sans text-[14px] text-[var(--ink-mid)] max-w-[260px] mt-3 leading-relaxed">{step.body}</p>
+                <p className="font-sans text-[14px] text-neutral-500 max-w-[260px] mt-3 leading-relaxed">{step.body}</p>
               </motion.div>
             ))}
           </div>
@@ -1134,7 +1134,7 @@ export default function LandingPage() {
 
           {/* Header Block */}
           <div className="max-w-[1200px] w-full mx-auto px-6 sm:px-12 md:px-20 mb-8 select-none">
-            <span className="font-space-mono text-[11px] text-[var(--ink-soft)] uppercase tracking-widest block mb-2">WHAT YOU GET</span>
+            <span className="font-space-mono text-[11px] text-neutral-400 uppercase tracking-widest block mb-2">WHAT YOU GET</span>
             <h2 className="font-sans font-black text-4xl md:text-6xl text-neutral-900 tracking-tight leading-none uppercase">
               Plans that <span className="font-serif italic font-normal text-[#1E5B3B] block md:inline lowercase tracking-normal pl-1">actually fit you.</span>
             </h2>
@@ -1153,22 +1153,22 @@ export default function LandingPage() {
                   </div>
 
                   <div>
-                    <div className="font-space-mono text-[10px] text-[var(--ink-soft)] tracking-widest uppercase mb-1">{card.category}</div>
+                    <div className="font-space-mono text-[10px] text-neutral-400 tracking-widest uppercase mb-1">{card.category}</div>
                     <h3 className="font-sans font-black text-2xl text-neutral-900 leading-tight uppercase">{card.name}</h3>
 
                     {/* Dotted leader facts table */}
                     <div className="space-y-2.5 mt-6">
-                      <div className="flex justify-between items-baseline font-space-mono text-[11px] tracking-wider text-[var(--ink-mid)] uppercase">
+                      <div className="flex justify-between items-baseline font-space-mono text-[11px] tracking-wider text-neutral-500 uppercase">
                         <span>Coverage</span>
                         <span className="flex-grow border-b border-dotted border-neutral-300 mx-2"></span>
-                        <span className="font-bold text-[var(--ink)]">{card.coverage}</span>
+                        <span className="text-black font-bold">{card.coverage}</span>
                       </div>
-                      <div className="flex justify-between items-baseline font-space-mono text-[11px] tracking-wider text-[var(--ink-mid)] uppercase">
+                      <div className="flex justify-between items-baseline font-space-mono text-[11px] tracking-wider text-neutral-500 uppercase">
                         <span>Premium</span>
                         <span className="flex-grow border-b border-dotted border-neutral-300 mx-2"></span>
-                        <span className="font-bold text-[var(--ink)]">{card.premium}</span>
+                        <span className="text-black font-bold">{card.premium}</span>
                       </div>
-                      <div className="flex justify-between items-baseline font-space-mono text-[11px] tracking-wider text-[var(--ink-mid)] uppercase">
+                      <div className="flex justify-between items-baseline font-space-mono text-[11px] tracking-wider text-neutral-500 uppercase">
                         <span>Diabetes</span>
                         <span className="flex-grow border-b border-dotted border-neutral-300 mx-2"></span>
                         <span className="text-[#1E5B3B] font-bold">{card.diabetes}</span>
@@ -1177,7 +1177,7 @@ export default function LandingPage() {
                   </div>
 
                   <div>
-                    <div className="font-space-mono text-[9px] uppercase tracking-widest text-[var(--ink-soft)] mt-6 block">WHY IT WORKS:</div>
+                    <div className="font-space-mono text-[9px] uppercase tracking-widest text-neutral-400 mt-6 block">WHY IT WORKS:</div>
                     <p className="font-sans text-[13.5px] leading-relaxed text-neutral-600 mt-1 max-w-[280px]">{card.why}</p>
                     
                     <div className="flex justify-between items-center mt-6">
@@ -1219,7 +1219,7 @@ export default function LandingPage() {
           </div>
           
           <div className="mb-12">
-            <span className="font-space-mono text-[11px] text-[var(--ink-soft)] uppercase tracking-widest block mb-2">REAL FAMILIES</span>
+            <span className="font-space-mono text-[11px] text-neutral-400 uppercase tracking-widest block mb-2">REAL FAMILIES</span>
             <h2 className="font-sans font-black text-4xl md:text-5xl text-neutral-900 tracking-tight leading-none uppercase">
               Trusted by <span className="font-serif italic font-normal text-[#1E5B3B] block md:inline lowercase tracking-normal pl-1">thousands.</span>
             </h2>
@@ -1242,7 +1242,7 @@ export default function LandingPage() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h4 className="font-sans font-semibold text-[14px] text-neutral-900">{t.name}</h4>
-                    <p className="font-sans text-[12px] text-[var(--ink-soft)]">{t.detail}</p>
+                    <p className="font-sans text-[12px] text-neutral-400">{t.detail}</p>
                   </div>
                   <div className="flex gap-0.5 text-[11px] text-[#1E5B3B]">
                     {"★★★★★"}
@@ -1364,11 +1364,11 @@ export default function LandingPage() {
           >
             <div className="flex items-center gap-1 select-none cursor-pointer" onClick={() => router.push('/')}>
               <img src="/fidsurance-logo.png" alt="Outsurance Logo" className="h-9 w-auto object-contain" />
-              <span className="font-space-mono text-[14px] tracking-[0.05em] font-bold text-[var(--ink)] uppercase select-none leading-none -ml-1">
+              <span className="font-space-mono text-[14px] tracking-[0.05em] text-black font-bold uppercase select-none leading-none -ml-1">
                 OUTSURANCE
               </span>
             </div>
-            <p className="text-[13.5px] text-[var(--ink-mid)] font-sans tracking-wide max-w-[260px] leading-relaxed">
+            <p className="text-[13.5px] text-neutral-500 font-sans tracking-wide max-w-[260px] leading-relaxed">
               Protection. Care. Peace of Mind. Built around state-of-the-art diagnostic assessment pipelines.
             </p>
             <div className="flex gap-3 mt-2">
@@ -1392,7 +1392,7 @@ export default function LandingPage() {
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
             className="lg:col-span-3 border-l border-black/[0.05] pl-0 md:pl-8"
           >
-            <span className="font-space-mono text-[10px] tracking-widest text-[var(--ink-soft)] uppercase mb-5 block font-bold">PRODUCT</span>
+            <span className="font-space-mono text-[10px] tracking-widest text-neutral-400 uppercase mb-5 block font-bold">PRODUCT</span>
             <ul className="space-y-4 font-sans text-[14px] text-neutral-600">
               {["How It Works", "Find a Plan", "Compare Plans", "Risk Assessment", "Stress Test"].map((item, idx) => (
                 <li key={idx} className="overflow-hidden">
@@ -1416,7 +1416,7 @@ export default function LandingPage() {
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
             className="lg:col-span-2 border-l border-black/[0.05] pl-0 md:pl-8"
           >
-            <span className="font-space-mono text-[10px] tracking-widest text-[var(--ink-soft)] uppercase mb-5 block font-bold">COMPANY</span>
+            <span className="font-space-mono text-[10px] tracking-widest text-neutral-400 uppercase mb-5 block font-bold">COMPANY</span>
             <ul className="space-y-4 font-sans text-[14px] text-neutral-600">
               {["About Us", "Privacy Policy", "Terms of Service", "Contact Us", "Careers"].map((item, idx) => (
                 <li key={idx} className="overflow-hidden">
@@ -1441,7 +1441,7 @@ export default function LandingPage() {
             className="lg:col-span-3 border-l border-black/[0.05] pl-0 md:pl-8 flex flex-col gap-5"
           >
             <div>
-              <span className="font-space-mono text-[10px] tracking-widest text-[var(--ink-soft)] uppercase mb-3 block font-bold">GET IN TOUCH</span>
+              <span className="font-space-mono text-[10px] tracking-widest text-neutral-400 uppercase mb-3 block font-bold">GET IN TOUCH</span>
               <p className="font-sans text-[14px] text-neutral-600 leading-relaxed font-medium">
                 hello@outsurance.com<br />
                 +91 000 000 0000
@@ -1472,7 +1472,7 @@ export default function LandingPage() {
         </div>
 
         {/* BOTTOM ROW */}
-        <div className="max-w-[1200px] w-full mx-auto flex flex-col sm:flex-row justify-between items-center pt-8 border-t border-black/[0.05] font-space-mono text-[11px] text-[var(--ink-soft)] gap-4 text-center sm:text-left">
+        <div className="max-w-[1200px] w-full mx-auto flex flex-col sm:flex-row justify-between items-center pt-8 border-t border-black/[0.05] font-space-mono text-[11px] text-neutral-400 gap-4 text-center sm:text-left">
           <span>&copy; 2024 Outsurance. All rights reserved.</span>
           <span>Made in India 🇮🇳</span>
         </div>

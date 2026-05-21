@@ -124,24 +124,6 @@ class UserProfile(BaseModel):
     has_hypertension: Optional[bool] = None
     coverage_for: Optional[str] = 'Individual'
     family_members: Optional[int] = 1
-    
-    # PolicyBazaar Form fields
-    gender: Optional[str] = None
-    city: Optional[str] = None
-    full_name: Optional[str] = None
-    mobile_number: Optional[str] = None
-    covered_members: Optional[List[str]] = []
-    member_ages: Optional[Dict[str, int]] = {}
-    medical_history: Optional[List[str]] = []
-    height: Optional[float] = None
-    weight: Optional[float] = None
-    lab_report_text: Optional[str] = None
-    language: Optional[str] = 'English'
-    groups: Optional[List[Dict[str, Any]]] = []
-    member_medical_history: Optional[Dict[str, List[str]]] = {}
-    member_vitals: Optional[Dict[str, Dict[str, Any]]] = {}
-    member_dobs: Optional[Dict[str, str]] = {}
-
 
 class ExtractionRequest(BaseModel):
     raw_text: Optional[str] = None

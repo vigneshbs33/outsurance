@@ -48,43 +48,10 @@ export async function upsertProfile(userId: string, fields: ProfileFields) {
 
 export async function saveAssessmentResult(
   userId: string,
-  vitals: any,
+  vitals: AssessmentVitals,
   riskResult: RiskResult,
   topPlans: RecommendedPlan[]
 ) {
-  // 1. Serialize extra metadata into the full_name column to avoid database schema disruption
-  const meta = {
-    mobile_number: vitals.mobileNumber || vitals.mobile_number || '',
-    covered_members: vitals.coveredMembersList || vitals.coveredMembers || vitals.covered_members || [],
-    member_ages: vitals.memberAges || vitals.member_ages || {},
-    medical_history: vitals.medicalHistory || vitals.medical_history || [],
-    height: vitals.height || 0,
-    weight: vitals.weight || 0,
-    language: vitals.language || 'English',
-    groups: vitals.groups || [],
-    member_medical_history: vitals.memberMedicalHistory || {},
-    member_vitals: vitals.memberVitals || {},
-    member_dobs: vitals.memberDOBs || {},
-  };
-  const cleanName = vitals.fullName || vitals.full_name || 'Anonymous Member';
-  const serializedName = `${cleanName} || ${JSON.stringify(meta)}`;
-
-  // 2. Upsert profile fields
-  const profileFields = {
-    full_name: serializedName,
-    gender: vitals.gender || '',
-    city: vitals.city || '',
-    annual_income: vitals.income_lakh || 0,
-    monthly_budget: vitals.monthly_budget || 0,
-  };
-
-  try {
-    await upsertProfile(userId, profileFields);
-  } catch (err) {
-    console.error('[WARN] Failed to upsert profile:', err);
-  }
-
-  // 3. Insert assessment session
   const { data: session, error: sessionErr } = await supabase
     .from('assessment_sessions')
     .insert({
