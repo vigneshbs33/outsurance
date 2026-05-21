@@ -1,6 +1,6 @@
 """
 OUTSURANCE — Dataset Generator
-Generates 20,000 synthetic health records based on Indian population epidemiology.
+Generates 100,000 synthetic health records based on Indian population epidemiology.
 Merges with UCI + Kaggle public datasets for realistic training data.
 
 References:
@@ -17,10 +17,41 @@ from pathlib import Path
 np.random.seed(42)
 OUTPUT_PATH = Path(__file__).parent / "training_data.csv"
 
+# New condition prevalence rates (India-specific, peer-reviewed sources)
+CONDITION_PREVALENCE = {
+    "heart_disease":    lambda age: 0.01 if age < 40 else (0.07 if age < 55 else 0.18),
+    "cancer":           lambda age: 0.003 if age < 45 else 0.009,
+    "thyroid":          lambda age: 0.105,     # ICMR 2021: 10.5% all ages
+    "asthma":           lambda age: 0.030,     # GBD 2019
+    "kidney_disease":   lambda age: 0.017,     # adjusted upward if diabetic
+    "liver_disease":    lambda age: 0.020,     # NAFLD rising in India
+    "previous_surgery": lambda age: 0.080,     # any major surgery
+    "arthritis":        lambda age: 0.01 if age < 40 else (0.06 if age < 60 else 0.15),
+}
+
+# Per-condition risk weights used in ground truth formula
+CONDITION_RISK_WEIGHTS = {
+    "heart_disease": 0.92,
+    "cancer": 0.88,
+    "kidney_disease": 0.72,
+    "liver_disease": 0.65,
+    "asthma": 0.22,
+    "thyroid": 0.09,
+    "arthritis": 0.10,
+    "previous_surgery": 0.12,
+}
+
+def compute_condition_risk_score(conditions: dict) -> float:
+    """
+    Sum risk weights for all active conditions.
+    Returns float in range 0.0–5.0 (capped).
+    """
+    raw = sum(CONDITION_RISK_WEIGHTS[k] for k, v in conditions.items() if v)
+    return round(min(5.0, raw), 4)
 
 # ─── Risk Score Formula (Used as ground truth for labelling) ──────────────────
 def compute_risk_score(age, bmi, hba1c, bp_systolic, smoker,
-                       has_diabetes, has_hypertension, chronic_count):
+                       has_diabetes, has_hypertension, condition_risk_score):
     score = 0.0
     # Age factor
     if age >= 65:     score += 0.18
@@ -47,8 +78,8 @@ def compute_risk_score(age, bmi, hba1c, bp_systolic, smoker,
     if has_diabetes:     score += 0.18
     if has_hypertension: score += 0.10
 
-    # Chronic burden
-    score += chronic_count * 0.04
+    # Condition severity score contribution (replaces chronic_count * 0.04)
+    score += condition_risk_score * 0.06   # max 5.0 * 0.06 = 0.30 contribution
 
     return min(1.0, score)
 
@@ -89,7 +120,15 @@ def generate_synthetic(n=100000):
         # BMI: Indian distribution (slightly lower than Western)
         bmi = round(float(np.clip(np.random.normal(23.4, 4.5), 16.0, 48.0)), 1)
 
-        chronic_count = min(5, has_diabetes + has_hypertension + smoker + int(age > 55))
+        # Sample health conditions
+        conditions = {}
+        for cond, prevalence_fn in CONDITION_PREVALENCE.items():
+            prevalence = prevalence_fn(age)
+            if cond == "kidney_disease" and has_diabetes:
+                prevalence *= 2.5
+            conditions[cond] = int(np.random.random() < prevalence)
+        
+        condition_risk_score = compute_condition_risk_score(conditions)
 
         # Engineered features
         bmi_age_interaction = round(bmi * age / 100, 2)
@@ -97,7 +136,7 @@ def generate_synthetic(n=100000):
 
         risk_score = compute_risk_score(
             age, bmi, hba1c, bp_systolic, smoker,
-            has_diabetes, has_hypertension, chronic_count
+            has_diabetes, has_hypertension, condition_risk_score
         )
         
         # Inject Gaussian noise to make the classification harder (target ~85% accuracy)
@@ -112,7 +151,7 @@ def generate_synthetic(n=100000):
             'smoker': smoker,
             'has_diabetes': has_diabetes,
             'has_hypertension': has_hypertension,
-            'chronic_count': chronic_count,
+            'condition_risk_score': condition_risk_score,
             'bmi_age_interaction': bmi_age_interaction,
             'metabolic_risk_score': metabolic_risk_score,
             'risk_score': round(risk_score, 3),
@@ -147,7 +186,7 @@ def try_merge_real_datasets(df_synth):
             'smoker': 0,
             'has_diabetes': pima['Outcome'],
             'has_hypertension': (pima['BloodPressure'] > 90).astype(int),
-            'chronic_count': pima['Outcome'],
+            'condition_risk_score': (pima['Outcome'] * 0.42).round(4),
             'bmi_age_interaction': (pima['BMI'] * pima['Age'] / 100).round(2),
             'metabolic_risk_score': ((pima['Glucose'] / 18.0 * 0.0915 + 2.51 - 5.0) * pima['BMI'] / 10).round(2),
             'source': 'pima_diabetes',
@@ -155,12 +194,12 @@ def try_merge_real_datasets(df_synth):
         for idx, row in pima_adapted.iterrows():
             rs = compute_risk_score(
                 row['age'], row['bmi'], row['hba1c'], row['bp_systolic'],
-                row['smoker'], row['has_diabetes'], row['has_hypertension'], row['chronic_count']
+                row['smoker'], row['has_diabetes'], row['has_hypertension'], row['condition_risk_score']
             )
             pima_adapted.at[idx, 'risk_score'] = round(rs, 3)
             pima_adapted.at[idx, 'risk_tier'] = score_to_tier(rs)
         merged.append(pima_adapted)
-        print(f"  ✅ Merged Pima diabetes dataset ({len(pima_adapted)} rows)")
+        print(f"  Merged Pima diabetes dataset ({len(pima_adapted)} rows)")
 
     # --- UCI Heart Disease Cleveland (303 rows) ---
     heart_path = raw_dir / "uci_heart.csv"
@@ -174,7 +213,7 @@ def try_merge_real_datasets(df_synth):
             'smoker': 0,
             'has_diabetes': (heart['fbs'] > 120).astype(int) if 'fbs' in heart else 0,
             'has_hypertension': (heart['trestbps'] > 130).astype(int),
-            'chronic_count': heart['ca'].fillna(0).astype(int),
+            'condition_risk_score': (heart['ca'].fillna(0).astype(int) * 0.35).round(4),
             'bmi_age_interaction': 0.0,
             'metabolic_risk_score': 0.0,
             'source': 'uci_heart',
@@ -182,22 +221,22 @@ def try_merge_real_datasets(df_synth):
         for idx, row in heart_adapted.iterrows():
             rs = compute_risk_score(
                 row['age'], row['bmi'], row['hba1c'], row['bp_systolic'],
-                row['smoker'], row['has_diabetes'], row['has_hypertension'], row['chronic_count']
+                row['smoker'], row['has_diabetes'], row['has_hypertension'], row['condition_risk_score']
             )
             heart_adapted.at[idx, 'risk_score'] = round(rs, 3)
             heart_adapted.at[idx, 'risk_tier'] = score_to_tier(rs)
         merged.append(heart_adapted)
-        print(f"  ✅ Merged UCI Heart dataset ({len(heart_adapted)} rows)")
+        print(f"  Merged UCI Heart dataset ({len(heart_adapted)} rows)")
 
     return pd.concat(merged, ignore_index=True)
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("🔧 Generating synthetic health records...")
+    print("Generating synthetic health records...")
     df_synth = generate_synthetic(n=100000)
 
-    print("📂 Checking for real datasets...")
+    print("Checking for real datasets...")
     df_final = try_merge_real_datasets(df_synth)
 
     # Fill any missing engineered features
@@ -208,10 +247,10 @@ if __name__ == "__main__":
         (df_final['hba1c'] - 5.0) * df_final['bmi'] / 10
     )
 
-    print(f"\n📊 Dataset Summary:")
+    print(f"\nDataset Summary:")
     print(f"   Total rows:      {len(df_final):,}")
     print(f"   Risk distribution:")
     print(df_final['risk_tier'].value_counts(normalize=True).round(3).to_string())
 
     df_final.to_csv(OUTPUT_PATH, index=False)
-    print(f"\n✅ Saved to {OUTPUT_PATH}")
+    print(f"\nSaved to {OUTPUT_PATH}")

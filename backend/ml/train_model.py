@@ -15,7 +15,7 @@ import xgboost as xgb
 import joblib
 import shap
 from pathlib import Path
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score, RandomizedSearchCV
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import (
     classification_report, confusion_matrix, accuracy_score, f1_score
@@ -34,22 +34,23 @@ METRICS_PATH = BASE / "model_metrics.json"
 FEATURES = [
     'age', 'bmi', 'hba1c', 'bp_systolic',
     'smoker', 'has_diabetes', 'has_hypertension',
-    'chronic_count', 'bmi_age_interaction', 'metabolic_risk_score',
+    'condition_risk_score',
+    'bmi_age_interaction', 'metabolic_risk_score',
 ]
 TARGET = 'risk_tier'
 
 # ─── 1. Load Data ─────────────────────────────────────────────────────────────
 def load_data():
     if not DATA_PATH.exists():
-        print("⚙️  Dataset not found — generating now...")
+        print("Dataset not found - generating now...")
         from ml.generate_dataset import generate_synthetic, try_merge_real_datasets
         df = generate_synthetic(20000)
         df = try_merge_real_datasets(df)
         df.to_csv(DATA_PATH, index=False)
-        print(f"   ✅ Generated {len(df):,} rows")
+        print(f"   Generated {len(df):,} rows")
     else:
         df = pd.read_csv(DATA_PATH)
-        print(f"✅ Loaded dataset: {len(df):,} rows")
+        print(f"Loaded dataset: {len(df):,} rows")
 
     print("\n   Class distribution:")
     print(df[TARGET].value_counts().to_string())
@@ -75,34 +76,70 @@ def prepare_features(df):
 
 
 # ─── 3. Train XGBoost ────────────────────────────────────────────────────────
-def train_xgboost(X_train, y_train, n_classes):
+def train_xgboost(X_train, y_train, X_test, y_test, n_classes):
     # Compute sample weights to handle class imbalance
     sample_weights = compute_sample_weight('balanced', y_train)
 
-    model = xgb.XGBClassifier(
-        n_estimators=300,
-        max_depth=6,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        min_child_weight=3,
-        gamma=0.1,
-        reg_alpha=0.1,
-        reg_lambda=1.0,
+    print("\n   [HYPERPARAMETER TUNING] Scanning parameter combinations with 5-Fold Stratified CV...")
+    param_dist = {
+        'max_depth': [5, 6, 7, 8, 9, 10, 11, 12],
+        'learning_rate': [0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1],
+        'n_estimators': [500, 800, 1000, 1200, 1500],
+        'subsample': [0.7, 0.75, 0.8, 0.85, 0.9, 0.95],
+        'colsample_bytree': [0.7, 0.75, 0.8, 0.85, 0.9, 0.95],
+        'min_child_weight': [1, 2, 3, 4, 5],
+        'gamma': [0.0, 0.01, 0.05, 0.1, 0.2, 0.3],
+        'reg_alpha': [0.0, 0.01, 0.05, 0.1, 0.2, 0.5],
+        'reg_lambda': [0.5, 0.8, 1.0, 1.2, 1.5, 2.0]
+    }
+
+    base_model = xgb.XGBClassifier(
         num_class=n_classes,
         objective='multi:softprob',
         eval_metric='mlogloss',
         use_label_encoder=False,
         random_state=42,
-        n_jobs=-1,
+        n_jobs=-1
     )
 
-    model.fit(
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    random_search = RandomizedSearchCV(
+        estimator=base_model,
+        param_distributions=param_dist,
+        n_iter=50,
+        scoring='f1_weighted',
+        cv=skf,
+        verbose=1,
+        random_state=42,
+        n_jobs=-1
+    )
+
+    random_search.fit(X_train, y_train, sample_weight=sample_weights)
+
+    print("\n   [TUNING RESULT] Best parameters found:")
+    for param_name, param_val in random_search.best_params_.items():
+        print(f"      - {param_name}: {param_val}")
+    print(f"   [TUNING RESULT] Best CV Weighted F1: {random_search.best_score_:.4f}")
+
+    best_params = random_search.best_params_
+
+    # Train final model on entire training dataset with best parameters and no early stopping
+    print("\n   [FINAL TRAINING] Training final model with optimal parameters on the full dataset (no early stopping, using all estimators)...")
+    final_model = xgb.XGBClassifier(
+        objective='multi:softprob',
+        eval_metric='mlogloss',
+        use_label_encoder=False,
+        random_state=42,
+        n_jobs=-1,
+        **best_params
+    )
+
+    final_model.fit(
         X_train, y_train,
         sample_weight=sample_weights,
-        verbose=False,
+        verbose=100
     )
-    return model
+    return final_model
 
 
 # ─── 4. Evaluate ─────────────────────────────────────────────────────────────
@@ -113,7 +150,7 @@ def evaluate(model, X_test, y_test, le):
     f1_weighted = f1_score(y_test, y_pred, average='weighted')
 
     print(f"\n{'='*50}")
-    print(f"  OUTSURANCE ML MODEL — EVALUATION REPORT")
+    print(f"  OUTSURANCE ML MODEL - EVALUATION REPORT")
     print(f"{'='*50}")
     print(f"  Accuracy:        {acc:.4f}  ({acc*100:.1f}%)")
     print(f"  Weighted F1:     {f1_weighted:.4f}")
@@ -128,7 +165,7 @@ def evaluate(model, X_test, y_test, le):
     print(f"\n  Feature Importances (top 10):")
     fi = pd.Series(model.feature_importances_, index=FEATURES).sort_values(ascending=False)
     for feat, imp in fi.head(10).items():
-        bar = '█' * int(imp * 100)
+        bar = '=' * int(imp * 100)
         print(f"    {feat:<30} {imp:.4f}  {bar}")
 
     return {
@@ -149,7 +186,7 @@ def build_shap_explainer(model, X_test):
         # Try modern shap.Explainer (works with XGBoost 3.x)
         explainer = shap.Explainer(model, X_test)
         sample_shap = explainer(X_test.head(5))
-        print(f"   SHAP ready — values shape: {sample_shap.values.shape}")
+        print(f"   SHAP ready - values shape: {sample_shap.values.shape}")
         return explainer
     except Exception as e1:
         print(f"   shap.Explainer failed ({e1}), trying TreeExplainer...")
@@ -159,14 +196,32 @@ def build_shap_explainer(model, X_test):
             print("   SHAP TreeExplainer ready")
             return explainer
         except Exception as e2:
-            print(f"   SHAP unavailable ({e2}) — continuing without it")
+            print(f"   SHAP unavailable ({e2}) - continuing without it")
             return None
 
 
 # ─── 6. Cross Validation ────────────────────────────────────────────────────
 def cross_validate(model, X, y):
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    cv_scores = cross_val_score(model, X, y, cv=skf, scoring='f1_weighted', n_jobs=-1)
+    cv_scores = []
+    
+    from sklearn.base import clone
+    cv_model = clone(model)
+    cv_model.set_params(early_stopping_rounds=None)
+    
+    X_arr = X.to_numpy() if hasattr(X, 'to_numpy') else np.array(X)
+    y_arr = y.to_numpy() if hasattr(y, 'to_numpy') else np.array(y)
+    
+    for fold, (train_idx, val_idx) in enumerate(skf.split(X_arr, y_arr)):
+        X_train_fold, X_val_fold = X_arr[train_idx], X_arr[val_idx]
+        y_train_fold, y_val_fold = y_arr[train_idx], y_arr[val_idx]
+        
+        cv_model.fit(X_train_fold, y_train_fold, verbose=False)
+        y_pred = cv_model.predict(X_val_fold)
+        fold_f1 = f1_score(y_val_fold, y_pred, average='weighted')
+        cv_scores.append(fold_f1)
+        
+    cv_scores = np.array(cv_scores)
     print(f"\n  5-Fold CV F1 scores: {cv_scores.round(3)}")
     print(f"  Mean: {cv_scores.mean():.4f}  Std: {cv_scores.std():.4f}")
     return cv_scores.tolist()
@@ -175,7 +230,7 @@ def cross_validate(model, X, y):
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     print("=" * 50)
-    print("  OUTSURANCE — ML Training Pipeline")
+    print("  OUTSURANCE - ML Training Pipeline")
     print("=" * 50)
 
     # 1. Load
@@ -189,10 +244,10 @@ if __name__ == "__main__":
     print(f"\n  Train: {len(X_train):,} | Test: {len(X_test):,}")
 
     # 3. Train
-    print("\n⚙️  Training XGBoost classifier...")
+    print("\nTraining XGBoost classifier...")
     n_classes = len(le.classes_)
-    model = train_xgboost(X_train, y_train, n_classes)
-    print("   ✅ Training complete")
+    model = train_xgboost(X_train, y_train, X_test, y_test, n_classes)
+    print("   Training complete")
 
     # 4. Evaluate
     metrics = evaluate(model, X_test, y_test, le)
@@ -217,8 +272,8 @@ if __name__ == "__main__":
     with open(METRICS_PATH, 'w') as f:
         json.dump(metrics, f, indent=2)
 
-    print(f"   ✅ Model  → {MODEL_PATH}")
-    print(f"   ✅ Encoder → {ENCODER_PATH}")
-    print(f"   ✅ SHAP    → {SHAP_PATH}")
-    print(f"   ✅ Metrics → {METRICS_PATH}")
-    print("\n🚀 Run the backend: uvicorn app.main:app --reload --port 8000")
+    print(f"   Model  -> {MODEL_PATH}")
+    print(f"   Encoder -> {ENCODER_PATH}")
+    print(f"   SHAP    -> {SHAP_PATH}")
+    print(f"   Metrics -> {METRICS_PATH}")
+    print("\nRun the backend: uvicorn app.main:app --reload --port 8000")

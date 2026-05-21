@@ -67,6 +67,33 @@ def suitability_score(plan, user):
     if smoker and plan.get('type') == 'Basic':
         cond -= 1.0   # basic plans often exclude smokers
 
+    # NEW: Dominant condition awareness
+    dominant = user.get("dominant_condition", "")
+    if dominant:
+        dominant_lower = dominant.lower()
+        is_cardiac_cover = plan.get("critical_illness_cover", False) or plan.get("type") == "Critical Illness" or "heart" in plan.get("name", "").lower() or "criticare" in plan.get("name", "").lower()
+        is_cancer_cover = plan.get("cancer_cover", False) or plan.get("type") == "Critical Illness" or "criticare" in plan.get("name", "").lower()
+
+        if any(k in dominant_lower for k in ["heart", "cardiac", "myocardial"]):
+            if is_cardiac_cover:    cond += 3.0
+            elif plan.get("type") == "Basic":          cond -= 3.5
+
+        if any(k in dominant_lower for k in ["cancer", "oncol", "tumor"]):
+            if is_cancer_cover:              cond += 3.5
+            elif plan.get("type") in ["Basic","Standard"]: cond -= 2.5
+
+        if any(k in dominant_lower for k in ["kidney", "renal", "ckd"]):
+            wait = plan.get("pre_existing_wait_years", 4)
+            cond += (2.5 if wait <= 1 else (-2.0 if wait >= 3 else 0))
+
+        if any(k in dominant_lower for k in ["liver", "cirrhosis", "hepat"]):
+            wait = plan.get("pre_existing_wait_years", 4)
+            cond += (2.0 if wait <= 1 else (-1.5 if wait >= 3 else 0))
+
+        if any(k in dominant_lower for k in ["asthma", "copd", "lung"]):
+            wait = plan.get("pre_existing_wait_years", 4)
+            cond += (1.5 if wait <= 1 else (-1.0 if wait >= 3 else 0))
+
     scores['condition_match'] = max(0.0, min(10.0, cond))
 
     # ── RISK TIER ALIGNMENT (20%) ──
@@ -141,7 +168,7 @@ def cosine_match_score(plan, user):
         float(user.get('bp_systolic', 120)),
         1.0 if (user.get('has_diabetes') or user.get('diabetes', 0) == 1) else 0.0,
         1.0 if (user.get('has_hypertension') or user.get('hypertension', 0) == 1) else 0.0,
-        float(user.get('chronic_count', 0)),
+        float(user.get('condition_risk_score', 0.0)),
     ]
     ideal = plan.get('ideal_vector', [30, 22.0, 500000, 1000, 0, 5.5, 120, 0, 0, 0])
 
@@ -162,6 +189,20 @@ def get_warning_flags(plan: dict, user: dict) -> list:
     has_hypert   = user.get('has_hypertension') or user.get('hypertension', 0) == 1
     wait         = plan.get('pre_existing_wait_years', 4)
 
+    # NEW: Condition warning flags
+    dominant = user.get("dominant_condition", "")
+    if dominant:
+        dominant_lower = dominant.lower()
+        is_cardiac_cover = plan.get("critical_illness_cover", False) or plan.get("type") == "Critical Illness" or "heart" in plan.get("name", "").lower() or "criticare" in plan.get("name", "").lower()
+        is_cancer_cover = plan.get("cancer_cover", False) or plan.get("type") == "Critical Illness" or "criticare" in plan.get("name", "").lower()
+
+        if "heart" in dominant_lower and not is_cardiac_cover:
+            warnings.append("No cardiac critical illness cover")
+        if "cancer" in dominant_lower and not is_cancer_cover:
+            warnings.append("Cancer treatment may not be covered")
+        if "kidney" in dominant_lower and plan.get("pre_existing_wait_years", 4) >= 3:
+            warnings.append(f"{plan.get('pre_existing_wait_years')}yr wait for kidney coverage")
+
     if has_diabetes and not plan.get('diabetes_day1') and wait >= 3:
         warnings.append(f"{wait}-yr wait for diabetes cover")
 
@@ -176,7 +217,7 @@ def get_warning_flags(plan: dict, user: dict) -> list:
 
     income = user.get('income_lakh', 5) * 100_000
     if plan.get('coverage', 0) < income:
-        warnings.append("Coverage below 1× annual income")
+        warnings.append("Coverage below 1x annual income")
 
     if plan.get('hospital_network_count', 9999) < 6000:
         warnings.append("Smaller hospital network")

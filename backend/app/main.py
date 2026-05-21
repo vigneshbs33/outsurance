@@ -39,7 +39,8 @@ ML_DIR   = os.path.join(BASE_DIR, 'ml')
 FEATURES = [
     'age', 'bmi', 'hba1c', 'bp_systolic',
     'smoker', 'has_diabetes', 'has_hypertension',
-    'chronic_count', 'bmi_age_interaction', 'metabolic_risk_score',
+    'condition_risk_score',   # ← renamed from chronic_count
+    'bmi_age_interaction', 'metabolic_risk_score',
 ]
 
 # Human-readable feature labels for explanation output
@@ -51,7 +52,7 @@ FEATURE_LABELS = {
     'smoker': 'Smoker',
     'has_diabetes': 'Diabetes',
     'has_hypertension': 'Hypertension',
-    'chronic_count': 'Chronic Conditions',
+    'condition_risk_score': 'Condition Severity Score',
     'bmi_age_interaction': 'BMI×Age (metabolic load)',
     'metabolic_risk_score': 'Metabolic Risk Score',
 }
@@ -61,16 +62,15 @@ risk_model = None
 label_encoder = None
 feature_importances = {}  # Global feature importance dict from trained model
 
-@app.on_event("startup")
-def startup_event():
+def load_models_lazy():
     global risk_model, label_encoder, feature_importances
+    if risk_model is not None and label_encoder is not None:
+        return
 
-    # Load XGBoost risk model
     model_path   = os.path.join(ML_DIR, 'risk_model.json')
     encoder_path = os.path.join(ML_DIR, 'label_encoder.pkl')
-    shap_path    = os.path.join(ML_DIR, 'shap_explainer.pkl')
 
-    if os.path.exists(model_path):
+    if os.path.exists(model_path) and risk_model is None:
         risk_model = xgb.XGBClassifier()
         risk_model.load_model(model_path)
         # Extract feature importances for explanation
@@ -78,13 +78,14 @@ def startup_event():
         total = sum(fi.values()) or 1
         feature_importances = {k: round(v / total, 4) for k, v in fi.items()}
         print("XGBoost risk model loaded")
-    else:
-        print("XGBoost model not found — run: python -m ml.train_model")
 
-    if os.path.exists(encoder_path):
+    if os.path.exists(encoder_path) and label_encoder is None:
         label_encoder = joblib.load(encoder_path)
         print("Label encoder loaded")
 
+@app.on_event("startup")
+def startup_event():
+    load_models_lazy()
     # Load Gemma LLM
     load_model()
 
@@ -157,13 +158,27 @@ class ChatRequest(BaseModel):
 
 
 # ─── Risk Assessment Helper ──────────────────────────────────────────────────
-def assess_risk(profile: UserProfile):
-    """Run XGBoost and return risk_tier, risk_score, explanation."""
+def assess_risk(profile: UserProfile, llm_generate=None):
+    """Run XGBoost and return risk_tier, risk_score, explanation, condition_detail."""
+    load_models_lazy()
+    if llm_generate is None:
+        llm_generate = generate_text
+
     has_diabetes     = profile.has_diabetes if profile.has_diabetes is not None else bool(profile.diabetes)
     has_hypertension = profile.has_hypertension if profile.has_hypertension is not None else bool(profile.hypertension)
 
     bmi_age_interaction  = round(profile.bmi * profile.age / 100, 2)
     metabolic_risk_score = round((profile.hba1c - 5.0) * profile.bmi / 10, 2)
+
+    # STAGE 0: Dynamic condition scoring
+    condition_detail = None
+    if profile.medical_history and len(profile.medical_history) > 0:
+        from .condition_scorer import score_conditions
+        condition_detail = score_conditions(profile.medical_history, llm_generate)
+        condition_risk_score = condition_detail["normalized_for_xgboost"]
+    else:
+        # Fallback: map chronic_count (legacy) to float range
+        condition_risk_score = round(min(5.0, profile.chronic_count * 0.60), 4)
 
     row = {
         'age': profile.age,
@@ -173,7 +188,7 @@ def assess_risk(profile: UserProfile):
         'smoker': profile.smoker,
         'has_diabetes': int(has_diabetes),
         'has_hypertension': int(has_hypertension),
-        'chronic_count': profile.chronic_count,
+        'condition_risk_score': condition_risk_score,
         'bmi_age_interaction': bmi_age_interaction,
         'metabolic_risk_score': metabolic_risk_score,
     }
@@ -205,6 +220,8 @@ def assess_risk(profile: UserProfile):
         if profile.smoker: score += 0.12
         if profile.diabetes: score += 0.18
         if profile.hypertension: score += 0.10
+        score += condition_risk_score * 0.06
+        
         rs = min(1.0, score)
         if rs >= 0.70:   risk_tier = "Critical"
         elif rs >= 0.45: risk_tier = "High"
@@ -213,7 +230,7 @@ def assess_risk(profile: UserProfile):
         risk_score = rs
         explanation = {}
 
-    return risk_tier, round(risk_score, 3), explanation
+    return risk_tier, round(risk_score, 3), explanation, condition_detail
 
 
 # ─── API Routes ───────────────────────────────────────────────────────────────
@@ -247,7 +264,7 @@ def assess_user(profile: UserProfile, request: Request):
     print(f"[assess] user={user_id} age={profile.age} hba1c={profile.hba1c}")
 
     # Stage 1: XGBoost Risk Classification
-    risk_tier, risk_score, shap_explanation = assess_risk(profile)
+    risk_tier, risk_score, shap_explanation, condition_detail = assess_risk(profile)
     print(f"  -> risk_tier={risk_tier}  risk_score={risk_score:.3f}")
 
     # Build user dict for scorer
@@ -256,6 +273,15 @@ def assess_user(profile: UserProfile, request: Request):
     user_dict['risk_score']      = risk_score
     user_dict['has_diabetes']    = int(bool(profile.diabetes or profile.has_diabetes))
     user_dict['has_hypertension']= int(bool(profile.hypertension or profile.has_hypertension))
+    
+    if condition_detail:
+        user_dict['condition_risk_score'] = condition_detail['normalized_for_xgboost']
+        user_dict['dominant_condition']   = condition_detail['dominant_condition']
+        user_dict['condition_detail']     = condition_detail
+    else:
+        user_dict['condition_risk_score'] = round(min(5.0, profile.chronic_count * 0.60), 4)
+        user_dict['dominant_condition']   = ""
+        user_dict['condition_detail']     = None
 
     # Stages 2 + 3: Rank plans
     top_plans = rank_plans(INSURANCE_PLANS, user_dict)
@@ -264,10 +290,18 @@ def assess_user(profile: UserProfile, request: Request):
     from concurrent.futures import ThreadPoolExecutor
 
     def generate_single_explanation(plan):
-        cond_str = ""
-        if user_dict['has_diabetes']:   cond_str += "diabetes, "
-        if user_dict['has_hypertension']: cond_str += "hypertension, "
-        cond_str = cond_str.rstrip(", ") or "no major pre-existing conditions"
+        if condition_detail and condition_detail.get("events"):
+            cond_str = ", ".join(
+                f"{e['name']} (severity: {e['weight']:.2f})"
+                for e in sorted(condition_detail["events"], key=lambda x: -x["weight"])
+            )
+            risk_ctx = f"Risk summary: {condition_detail.get('risk_summary', '')}. "
+        else:
+            cond_str = ""
+            if user_dict['has_diabetes']:   cond_str += "diabetes, "
+            if user_dict['has_hypertension']: cond_str += "hypertension, "
+            cond_str = cond_str.rstrip(", ") or "no major pre-existing conditions"
+            risk_ctx = ""
 
         sys_prompt = (
             "You are Outsurance's AI health advisor. Write a warm, clear 2-sentence explanation "
@@ -275,7 +309,8 @@ def assess_user(profile: UserProfile, request: Request):
         )
         user_prompt = (
             f"User: age={profile.age}, HbA1c={profile.hba1c}%, BP={profile.bp_systolic}, "
-            f"BMI={profile.bmi}, conditions: {cond_str}, budget=₹{profile.monthly_budget}/mo. "
+            f"BMI={profile.bmi}, conditions: {cond_str}. {risk_ctx}"
+            f"budget=₹{profile.monthly_budget}/mo. "
             f"Plan: {plan['name']} ({plan['type']}) — ₹{plan['annual_premium']}/yr. "
             f"Match score: {plan['suitability_score']}/10. Why does this plan fit?"
         )
@@ -298,6 +333,7 @@ def assess_user(profile: UserProfile, request: Request):
             "risk_score": risk_score,
             "confidence_pct": round(risk_score * 100),
             "feature_importance_explanation": shap_explanation,
+            "condition_detail": condition_detail,
         },
         "recommended_plans": top_plans,
     }

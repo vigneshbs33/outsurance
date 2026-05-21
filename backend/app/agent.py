@@ -228,6 +228,74 @@ def _extract_scenario(message: str) -> Optional[str]:
     return None
 
 
+def _extract_medical_terms(message: str, llm_generate: Optional[Callable] = None) -> List[str]:
+    """
+    Returns standardized medical terms extracted from any user message.
+    Falls back to regex matching if LLM is unavailable.
+    """
+    if llm_generate:
+        sys_prompt = """You are a medical term extractor for a health insurance AI system.
+Extract ONLY decisive medical health events or conditions from the user message.
+
+What to extract:
+  ✅ Diagnoses: "I have diabetes", "I was diagnosed with cancer"
+  ✅ Surgeries (past or recent): "had a heart bypass", "appendix removed"
+  ✅ Chronic conditions: "suffer from asthma", "kidney disease"
+  ✅ Cardiovascular events: "heart attack", "stroke", "angioplasty"
+
+What NOT to extract:
+  ❌ Symptoms: "I have headaches", "I feel tired"
+  ❌ Vitals: "my BP is 140", "my HbA1c is 7.2"
+  ❌ Lifestyle: "I smoke", "I exercise daily"
+  ❌ Insurance/budget queries: "which plan is cheaper"
+  ❌ Non-medical statements: "hello", "compare plans"
+
+Standardize each term to a clean 2–4 word medical label.
+If nothing medical found, return empty list [].
+Return ONLY a raw JSON array. No markdown. No explanation.
+
+Examples:
+  "I had a heart attack last year"       → ["heart attack"]
+  "diagnosed with kidney cancer"         → ["kidney cancer"]
+  "appendix surgery done in 2019"        → ["appendix surgery"]
+  "also have thyroid and bad knees"      → ["thyroid disorder", "arthritis"]
+  "what if my budget changes?"           → []
+  "I have diabetes and I smoke"          → ["diabetes"]
+"""
+        try:
+            resp = llm_generate(sys_prompt, f"Query: {message}", max_tokens=100)
+            cleaned = resp.replace("```json", "").replace("```", "").strip()
+            import json
+            terms = json.loads(cleaned)
+            if isinstance(terms, list):
+                return [str(t).strip().lower() for t in terms]
+        except Exception as e:
+            print(f"[WARN] LLM medical NER extraction failed: {e}")
+
+    # Fallback to regex matching
+    extracted = []
+    msg = message.lower()
+    regex_rules = [
+        (r'heart attack|myocardial infarction|cardiac arrest',  'heart attack'),
+        (r'cancer|tumou?r|oncolog|chemo',                       'cancer'),
+        (r'kidney (disease|failure|stones)|renal|ckd',         'kidney disease'),
+        (r'diabetes|diabetic|type [12]',                        'diabetes'),
+        (r'hypertension|high blood pressure',                   'hypertension'),
+        (r'stroke|cerebral|brain attack',                       'stroke'),
+        (r'asthma|copd|lung disease',                           'asthma'),
+        (r'thyroid|hypothyroid|hyperthyroid',                   'thyroid disorder'),
+        (r'liver (disease|cirrhosis)|hepatit',                  'liver disease'),
+        (r'arthritis|joint (disease|pain|replacement)',         'arthritis'),
+        (r'appendix (surgery|removal|appendectomy)',            'appendix surgery'),
+        (r'knee (surgery|replacement)',                          'knee surgery'),
+        (r'hip (surgery|replacement)',                           'hip surgery'),
+    ]
+    for pattern, term in regex_rules:
+        if re.search(pattern, msg):
+            extracted.append(term)
+    return list(set(extracted))
+
+
 def _extract_condition_updates_regex(message: str, current_profile: Dict) -> Dict:
     """
     Parse new conditions / flags from the message and return a dict of
@@ -237,13 +305,6 @@ def _extract_condition_updates_regex(message: str, current_profile: Dict) -> Dic
     msg = message.lower()
 
     condition_rules = [
-        (r'kidney|renal|nephro',                   {'chronic_count_delta': 1}),
-        (r'chronic heart|coronary|heart disease|heart attack|cardiac',  {'chronic_count_delta': 1}),
-        (r'thyroid|hypothyroid|hyperthyroid',       {'chronic_count_delta': 1}),
-        (r'arthritis|joint disease',                {'chronic_count_delta': 1}),
-        (r'liver|hepat|cirrhosis',                  {'chronic_count_delta': 1}),
-        (r'lung|copd|asthma|pulmonary',             {'chronic_count_delta': 1}),
-        (r'cancer|oncolog|tumour|tumor',            {'chronic_count_delta': 2}),
         (r'diabetes|diabetic|type 2|type 1',        {'has_diabetes': True, 'diabetes': 1}),
         (r'hypertension|high blood pressure|bp',    {'has_hypertension': True, 'hypertension': 1}),
         (r'smok|cigarette',                         {'smoker': 1}),
@@ -253,60 +314,69 @@ def _extract_condition_updates_regex(message: str, current_profile: Dict) -> Dic
     for pattern, field_updates in condition_rules:
         if re.search(pattern, msg):
             for k, v in field_updates.items():
-                if k == 'chronic_count_delta':
-                    current_count = current_profile.get('chronic_count', 0)
-                    updates['chronic_count'] = current_count + v
-                else:
-                    updates[k] = v
+                updates[k] = v
 
     return updates
 
 
 def _extract_condition_updates(message: str, current_profile: Dict, llm_generate: Optional[Callable] = None) -> Dict:
     """Extract profile updates using the LLM with a fallback to regex."""
-    if not llm_generate:
-        return _extract_condition_updates_regex(message, current_profile)
+    profile_updates = {}
+    
+    # 1. Extract medical history terms
+    new_terms = _extract_medical_terms(message, llm_generate)
+    if new_terms:
+        existing = current_profile.get("medical_history", [])
+        to_add = [t for t in new_terms if t not in existing]
+        if to_add:
+            profile_updates["medical_history"] = list(existing) + to_add
 
-    sys_prompt = (
-        "You are a medical entity extraction agent for health insurance. "
-        "Analyze the user's message and output a JSON object containing profile updates. "
-        "Only output fields that are explicitly changed or added in the message. Do not include unchanged fields.\n\n"
-        "Schema rules:\n"
-        "- 'chronic_count_delta': (int) Number of new chronic conditions mentioned (e.g. heart attack, cancer, thyroid, kidney/renal, lung/asthma/COPD, liver/cirrhosis, arthritis, stroke). Each unique chronic condition counts as +1 (or +2 for cancer).\n"
-        "- 'diabetes': (int, 0 or 1) Set to 1 if user indicates they have diabetes.\n"
-        "- 'hypertension': (int, 0 or 1) Set to 1 if user indicates they have hypertension or high blood pressure.\n"
-        "- 'smoker': (int, 0 or 1) Set to 1 if user mentions smoking or tobacco.\n"
-        "- 'monthly_budget': (float) Set if user specifies a monthly premium budget (e.g. 2000).\n"
-        "- 'age': (int) Set if user specifies a new age.\n"
-        "- 'hba1c': (float) Set if user specifies a new HbA1c.\n"
-        "- 'bp_systolic': (int) Set if user specifies a new blood pressure.\n"
-        "- 'bmi': (float) Set if user specifies a new BMI.\n\n"
-        "Return ONLY a raw JSON block. No markdown, no explanation."
-    )
-    try:
-        resp = llm_generate(sys_prompt, f"User message: {message}", max_tokens=150)
-        cleaned = resp.replace("```json", "").replace("```", "").strip()
-        import json
-        updates = json.loads(cleaned)
-        
-        profile_updates = {}
-        if "chronic_count_delta" in updates:
-            delta = int(updates["chronic_count_delta"])
-            profile_updates["chronic_count"] = current_profile.get("chronic_count", 0) + delta
+    # 2. Extract numeric and flag updates
+    if llm_generate:
+        sys_prompt = (
+            "You are a medical entity extraction agent for health insurance. "
+            "Analyze the user's message and output a JSON object containing profile updates. "
+            "Only output fields that are explicitly changed or added in the message. Do not include unchanged fields.\n\n"
+            "Schema rules:\n"
+            "- 'diabetes': (int, 0 or 1) Set to 1 if user indicates they have diabetes.\n"
+            "- 'hypertension': (int, 0 or 1) Set to 1 if user indicates they have hypertension or high blood pressure.\n"
+            "- 'smoker': (int, 0 or 1) Set to 1 if user mentions smoking or tobacco.\n"
+            "- 'monthly_budget': (float) Set if user specifies a monthly premium budget (e.g. 2000).\n"
+            "- 'age': (int) Set if user specifies a new age.\n"
+            "- 'hba1c': (float) Set if user specifies a new HbA1c.\n"
+            "- 'bp_systolic': (int) Set if user specifies a new blood pressure.\n"
+            "- 'bmi': (float) Set if user specifies a new BMI.\n\n"
+            "Return ONLY a raw JSON block. No markdown, no explanation."
+        )
+        try:
+            resp = llm_generate(sys_prompt, f"User message: {message}", max_tokens=150)
+            cleaned = resp.replace("```json", "").replace("```", "").strip()
+            import json
+            updates = json.loads(cleaned)
             
-        for key in ["diabetes", "hypertension", "smoker", "monthly_budget", "age", "hba1c", "bp_systolic", "bmi"]:
-            if key in updates:
-                if key == "diabetes":
-                    profile_updates["has_diabetes"] = bool(updates[key])
-                if key == "hypertension":
-                    profile_updates["has_hypertension"] = bool(updates[key])
-                profile_updates[key] = updates[key]
-                
-        return profile_updates
-    except Exception as e:
-        print(f"[WARN] LLM profile extraction failed: {e}")
+            for key in ["diabetes", "hypertension", "smoker", "monthly_budget", "age", "hba1c", "bp_systolic", "bmi"]:
+                if key in updates:
+                    if key == "diabetes":
+                        profile_updates["has_diabetes"] = bool(updates[key])
+                    if key == "hypertension":
+                        profile_updates["has_hypertension"] = bool(updates[key])
+                    profile_updates[key] = updates[key]
+                    
+            return profile_updates
+        except Exception as e:
+            print(f"[WARN] LLM profile extraction failed: {e}")
+            
+    # Fallback to regex
+    regex_updates = _extract_condition_updates_regex(message, current_profile)
+    for k, v in regex_updates.items():
+        if k not in profile_updates:
+            profile_updates[k] = v
+            
+    budget = _extract_budget(message)
+    if budget is not None:
+        profile_updates["monthly_budget"] = budget
         
-    return _extract_condition_updates_regex(message, current_profile)
+    return profile_updates
 
 
 # ─── Tools ─────────────────────────────────────────────────────────────────
@@ -318,20 +388,39 @@ def _tool_reassess(
     llm_generate: Callable,
 ) -> Dict:
     """Re-run the 3-stage ML pipeline and regenerate Gemma explanations."""
-    risk_tier, risk_score, feat_importance = risk_assessee(profile)
+    res = risk_assessee(profile)
+    condition_detail = None
+    if len(res) == 4:
+        risk_tier, risk_score, feat_importance, condition_detail = res
+    else:
+        risk_tier, risk_score, feat_importance = res
 
     updated_profile = dict(profile)
     updated_profile['risk_tier'] = risk_tier
     updated_profile['risk_score'] = risk_score
+    if condition_detail:
+        updated_profile['condition_risk_score'] = condition_detail['normalized_for_xgboost']
+        updated_profile['dominant_condition']   = condition_detail['dominant_condition']
+        updated_profile['condition_detail']     = condition_detail
+    else:
+        updated_profile['condition_risk_score'] = round(min(5.0, profile.get('chronic_count', 0) * 0.60), 4)
+        updated_profile['dominant_condition']   = ""
+        updated_profile['condition_detail']     = None
 
     top_plans = plan_ranker(INSURANCE_PLANS, updated_profile)
 
-    has_diabetes = bool(updated_profile.get('has_diabetes') or updated_profile.get('diabetes', 0))
-    has_hypert   = bool(updated_profile.get('has_hypertension') or updated_profile.get('hypertension', 0))
-    cond_str = ", ".join(filter(None, [
-        "diabetes" if has_diabetes else "",
-        "hypertension" if has_hypert else "",
-    ])) or "no major pre-existing conditions"
+    if condition_detail and condition_detail.get("events"):
+        cond_str = ", ".join(
+            f"{e['name']} (severity: {e['weight']:.2f})"
+            for e in sorted(condition_detail["events"], key=lambda x: -x["weight"])
+        )
+    else:
+        has_diabetes = bool(updated_profile.get('has_diabetes') or updated_profile.get('diabetes', 0))
+        has_hypert   = bool(updated_profile.get('has_hypertension') or updated_profile.get('hypertension', 0))
+        cond_str = ", ".join(filter(None, [
+            "diabetes" if has_diabetes else "",
+            "hypertension" if has_hypert else "",
+        ])) or "no major pre-existing conditions"
 
     from concurrent.futures import ThreadPoolExecutor
 
@@ -341,10 +430,14 @@ def _tool_reassess(
             "Write a warm, specific 2-sentence explanation of why this insurance plan "
             "fits this user's health and financial profile."
         )
+        risk_ctx = ""
+        if condition_detail:
+            risk_ctx = f"Risk summary: {condition_detail.get('risk_summary', '')}. "
+
         user_p = (
             f"User: age={updated_profile.get('age')}, HbA1c={updated_profile.get('hba1c')}%, "
             f"BP={updated_profile.get('bp_systolic')}, BMI={updated_profile.get('bmi')}, "
-            f"conditions: {cond_str}, budget=₹{updated_profile.get('monthly_budget')}/mo. "
+            f"conditions: {cond_str}. {risk_ctx}budget=₹{updated_profile.get('monthly_budget')}/mo. "
             f"Plan: {plan['name']} ({plan['type']}) — ₹{plan['annual_premium']}/yr, "
             f"match score {plan['suitability_score']}/10. Why does this plan fit?"
         )
@@ -365,6 +458,7 @@ def _tool_reassess(
             "risk_score": risk_score,
             "confidence_pct": round(risk_score * 100),
             "feature_importance_explanation": feat_importance,
+            "condition_detail": condition_detail,
         },
         "recommended_plans": top_plans,
         "updated_profile": updated_profile,
