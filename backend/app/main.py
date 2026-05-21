@@ -74,10 +74,10 @@ def load_models_lazy():
     if os.path.exists(model_path) and risk_model is None:
         risk_model = xgb.XGBClassifier()
         risk_model.load_model(model_path)
-        # Extract feature importances for explanation
-        fi = risk_model.get_booster().get_fscore()
-        total = sum(fi.values()) or 1
-        feature_importances = {k: round(v / total, 4) for k, v in fi.items()}
+        # Use gain-based importance so inference matches training metrics
+        fi_raw = risk_model.get_booster().get_score(importance_type='gain')
+        total = sum(fi_raw.values()) or 1
+        feature_importances = {k: round(v / total, 4) for k, v in fi_raw.items()}
         print("XGBoost risk model loaded")
 
     if os.path.exists(encoder_path) and label_encoder is None:

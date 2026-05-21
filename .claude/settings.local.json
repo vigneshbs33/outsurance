@@ -6,7 +6,10 @@
       "Read(//d/vignesh/files/Personal/Hackthon/Fidility/Fidsurance/graphify-out/**)",
       "Bash(python -c ' *)",
       "Bash(ls -la .graphify*)",
-      "Bash(ls graphify-out/)"
+      "Bash(ls graphify-out/)",
+      "Bash(python -m ml.generate_dataset)",
+      "Bash(Get-Content *)",
+      "Bash(python test_ml_flow.py)"
     ]
   }
 }
