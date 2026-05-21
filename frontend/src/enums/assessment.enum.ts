@@ -38,6 +38,4 @@ export enum InsuredMember {
   SISTER = 'Sister',
   UNCLE = 'Uncle',
   AUNT = 'Aunt',
-  LIVE_IN_PARTNER_MALE = 'Live-in Partner (Male)',
-  LIVE_IN_PARTNER_FEMALE = 'Live-in Partner (Female)',
 }

@@ -43,37 +43,22 @@ function getWidthPercentageClass(weight: number): string {
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [loading, setLoading] = useState(true);
   const [name, setName] = useState('Member');
   const [plans, setPlans] = useState<Plan[]>([]);
-  
   const [profileMeta, setProfileMeta] = useState<any>(null);
   const [groups, setGroups] = useState<Array<{ id: string; name: string; members: string[] }>>([
     { id: 'group_1', name: 'Group 1', members: ['Self'] }
   ]);
   const [activeGroupId, setActiveGroupId] = useState('group_1');
-
-  const [vitals, setVitals] = useState<Record<string, any>>({
-    age: 35,
-    bmi: 26.5,
-    smoker: 0,
-    hba1c: 6.2,
-    bp_systolic: 120,
-    has_diabetes: false,
-    has_hypertension: false,
-    chronic_count: 0,
-    monthly_budget: 3000,
-    income_lakh: 8.0,
-  });
+  const [vitals, setVitals] = useState<Record<string, any> | null>(null);
   const [score, setScore] = useState(parseInt(searchParams.get('score') || '63', 10));
   const [tier, setTier] = useState(searchParams.get('tier') || 'MEDIUM');
   const [featureImportances, setFeatureImportances] = useState<Record<string, number> | null>(null);
-
   const [selectedPlanForStress, setSelectedPlanForStress] = useState<Plan | null>(null);
   const [stressTestInitialScenario, setStressTestInitialScenario] = useState<{ id: string; name?: string; cost?: number; days?: number; isChronic?: boolean; } | undefined>();
   const [isCompareDrawerOpen, setIsCompareDrawerOpen] = useState(false);
-
   const { compareIds, toggleCompare, clearCompare, isInCompare } = useCompare();
-
   const [allAvailablePlans, setAllAvailablePlans] = useState<Plan[]>([]);
   const [filters, setFilters] = useState<FilterState>({
     sortBy: SortByOption.RELEVANCE,
@@ -89,7 +74,6 @@ function DashboardContent() {
     maternityCover: MaternityCoverOption.NO_PREFERENCE,
   });
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-
   const [agentInput, setAgentInput] = useState('');
   const [agentResponse, setAgentResponse] = useState<string | null>(null);
   const [agentToolUsed, setAgentToolUsed] = useState<string | null>(null);
@@ -97,15 +81,16 @@ function DashboardContent() {
   const [isAgentLoading, setIsAgentLoading] = useState(false);
 
   useEffect(() => {
-    function loadUserData(user: any) {
-      supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (!data) return;
-          const rawName = data.full_name || '';
+    async function loadUserData(user: any) {
+      try {
+        const [profileRes, assessmentRes, [allPlans, recommendation]] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+          supabase.from('assessment_sessions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+          Promise.all([fetchAllPlans(), getLatestRecommendation(user.id)])
+        ]);
+
+        if (profileRes.data) {
+          const rawName = profileRes.data.full_name || '';
           let cleanName = rawName;
           let meta: any = null;
           if (rawName.includes(' || ')) {
@@ -114,7 +99,6 @@ function DashboardContent() {
             try {
               meta = JSON.parse(parts[1]);
             } catch (e) {
-              console.error(e);
             }
           }
           setName(cleanName.split(' ')[0] || 'Member');
@@ -129,66 +113,56 @@ function DashboardContent() {
               setActiveGroupId('group_1');
             }
           }
-        });
+        }
 
-      supabase
-        .from('assessment_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            setVitals({
-              age: data.age || 35,
-              bmi: data.bmi || 26.5,
-              smoker: data.smoker || 0,
-              hba1c: data.hba1c || 6.2,
-              bp_systolic: data.bp_systolic || 120,
-              has_diabetes: data.has_diabetes,
-              has_hypertension: data.has_hypertension,
-              chronic_count: data.chronic_count || 0,
-              monthly_budget: data.monthly_budget || 3000,
-              income_lakh: data.income_lakh || 8.0,
-            });
+        if (assessmentRes.data) {
+          const data = assessmentRes.data;
+          setVitals({
+            age: data.age || 35,
+            bmi: data.bmi || 26.5,
+            smoker: data.smoker || 0,
+            hba1c: data.hba1c || 6.2,
+            bp_systolic: data.bp_systolic || 120,
+            has_diabetes: data.has_diabetes,
+            has_hypertension: data.has_hypertension,
+            chronic_count: data.chronic_count || 0,
+            monthly_budget: data.monthly_budget || 3000,
+            income_lakh: data.income_lakh || 8.0,
+          });
+        } else {
+          setVitals(null);
+        }
+
+        setAllAvailablePlans(allPlans);
+        if (recommendation && recommendation.top_plan_ids && recommendation.top_plan_ids.length > 0) {
+          setScore(Math.round(recommendation.risk_score * 100));
+          setTier(recommendation.risk_tier);
+          if (recommendation.top_plan_ids[0]?.feature_importance_explanation) {
+            setFeatureImportances(recommendation.top_plan_ids[0].feature_importance_explanation);
           }
-        });
-
-      Promise.all([
-        fetchAllPlans(),
-        getLatestRecommendation(user.id)
-      ])
-        .then(([allPlans, recommendation]) => {
-          setAllAvailablePlans(allPlans);
-          if (recommendation && recommendation.top_plan_ids && recommendation.top_plan_ids.length > 0) {
-            setScore(Math.round(recommendation.risk_score * 100));
-            setTier(recommendation.risk_tier);
-
-            if (recommendation.top_plan_ids[0]?.feature_importance_explanation) {
-              setFeatureImportances(recommendation.top_plan_ids[0].feature_importance_explanation);
+          const recommended = recommendation.top_plan_ids.map((recPlan: any) => {
+            const matchedPlan = allPlans.find((p: any) => p.id === recPlan.id);
+            if (matchedPlan) {
+              return {
+                ...matchedPlan,
+                suitability_score: recPlan.score,
+                cosine_similarity: recPlan.cosine_similarity,
+                plain_english_explanation: recPlan.plain_english_explanation,
+                warning_flags: recPlan.warning_flags || matchedPlan.warning_flags || []
+              };
             }
-
-            const recommended = recommendation.top_plan_ids.map((recPlan: any) => {
-              const matchedPlan = allPlans.find((p: any) => p.id === recPlan.id);
-              if (matchedPlan) {
-                return {
-                  ...matchedPlan,
-                  suitability_score: recPlan.score,
-                  cosine_similarity: recPlan.cosine_similarity,
-                  plain_english_explanation: recPlan.plain_english_explanation,
-                  warning_flags: recPlan.warning_flags || matchedPlan.warning_flags || []
-                };
-              }
-              return null;
-            }).filter(Boolean) as Plan[];
-
-            setPlans(recommended);
-          } else {
-            setPlans(allPlans.slice(0, 3));
-          }
-        })
-        .catch(() => {});
+            return null;
+          }).filter(Boolean) as Plan[];
+          setPlans(recommended);
+        } else {
+          setPlans([]);
+        }
+      } catch (err) {
+        setVitals(null);
+        setPlans([]);
+      } finally {
+        setLoading(false);
+      }
     }
 
     if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
@@ -227,6 +201,20 @@ function DashboardContent() {
   }, [tier]);
 
   const activeGroupVitals = useMemo(() => {
+    if (!vitals) {
+      return {
+        age: 35,
+        bmi: 22.0,
+        smoker: 0,
+        hba1c: 5.4,
+        bp_systolic: 120,
+        has_diabetes: false,
+        has_hypertension: false,
+        chronic_count: 0,
+        monthly_budget: 3000,
+        income_lakh: 8.0,
+      };
+    }
     if (!profileMeta || !activeGroupId || !groups) {
       return vitals;
     }
@@ -756,6 +744,77 @@ function DashboardContent() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 select-none font-mono">
+        <div className="w-full max-w-md border border-neutral-200 p-8 rounded-xl shadow-sm space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-2 w-2 bg-black rounded-full animate-ping" />
+            <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-extrabold">SECURE CHANNEL ACTIVE</span>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-sm font-bold uppercase tracking-tight text-neutral-900">
+              Configuring secure clinical sandbox...
+            </h2>
+            <div className="h-1 bg-neutral-100 w-full overflow-hidden rounded-full">
+              <div className="h-full bg-black w-1/3 animate-pulse rounded-full" />
+            </div>
+          </div>
+          <p className="text-[10px] text-neutral-400 uppercase tracking-wider leading-relaxed">
+            Syncing decentralized health profile & calculating XGBoost metabolic tier metrics.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!vitals) {
+    return (
+      <div className="min-h-screen bg-white lg:flex relative font-mono">
+        <Sidebar />
+        <main className="flex-1 px-4 sm:px-8 py-8 lg:px-12 pb-24 flex items-center justify-center">
+          <div className="w-full max-w-xl border border-neutral-200 p-8 md:p-12 rounded-xl shadow-sm space-y-8 bg-neutral-50/50">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 bg-neutral-100 text-neutral-800 border border-neutral-200 rounded-full text-[9px] uppercase tracking-widest font-extrabold">
+                Assessment Required
+              </div>
+              <h2 className="text-2xl font-black uppercase tracking-tight text-black font-[var(--font-heading)]">
+                No Clinical Profile Found
+              </h2>
+              <p className="text-xs text-neutral-500 leading-relaxed uppercase">
+                Your account does not currently possess a completed health risk assessment or clinical profile. Complete the clinical onboarding assessment to enable real-time metabolic tier profiling and automated insurance plan matching.
+              </p>
+            </div>
+            
+            <div className="grid border-t border-neutral-200 pt-6 gap-4 font-mono text-[10px] uppercase text-neutral-500">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-black">✓</span>
+                <span>On-device XGBoost metabolic risk profiling</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-black">✓</span>
+                <span>Semantic suitability mapping against HDFC ERGO policies</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-black">✓</span>
+                <span>Real-time clinical stress testing sandbox</span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => router.push('/assessment')}
+                className="w-full h-12 bg-black text-white hover:bg-neutral-800 text-xs uppercase tracking-widest font-extrabold rounded-xl transition-all cursor-pointer shadow-sm select-none"
+              >
+                Begin Clinical Assessment
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white lg:flex relative">
       <Sidebar />
@@ -777,21 +836,6 @@ function DashboardContent() {
               </button>
             </div>
           </header>
-
-          {searchParams.get('mode') === 'simulated' && (
-            <div className="mb-8 border border-amber-200 bg-amber-50/45 p-4 flex items-start gap-3 animate-fadeIn rounded-xl">
-              <span className="font-mono text-lg leading-none">⚠️</span>
-              <div className="space-y-1">
-                <span className="font-mono text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
-                  FastAPI connection fallback active
-                </span>
-                <p className="font-mono text-[11px] text-amber-700 leading-4">
-                  The local XGBoost risk assessment and Gemma backend was unreachable. 
-                  We loaded simulated suitability matches and metabolic risk projections.
-                </p>
-              </div>
-            </div>
-          )}
 
           <section className="grid gap-12 lg:grid-cols-[1.5fr_1fr]">
             <div className="space-y-6">

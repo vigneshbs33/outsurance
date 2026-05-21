@@ -140,7 +140,6 @@ class ChatRequest(BaseModel):
 
 # ─── Risk Assessment Helper ──────────────────────────────────────────────────
 def assess_risk(profile: UserProfile):
-    """Run XGBoost and return risk_tier, risk_score, explanation."""
     has_diabetes     = profile.has_diabetes if profile.has_diabetes is not None else bool(profile.diabetes)
     has_hypertension = profile.has_hypertension if profile.has_hypertension is not None else bool(profile.hypertension)
 
@@ -166,18 +165,27 @@ def assess_risk(profile: UserProfile):
         pred_idx  = risk_model.predict(X)[0]
         risk_tier = label_encoder.inverse_transform([pred_idx])[0]
         proba     = risk_model.predict_proba(X)[0]
-        risk_score = float(max(proba))
+        
+        class_to_idx = {cls: idx for idx, cls in enumerate(label_encoder.classes_)}
+        idx_critical = class_to_idx.get("Critical", 0)
+        idx_high     = class_to_idx.get("High", 1)
+        idx_low      = class_to_idx.get("Low", 2)
+        idx_medium   = class_to_idx.get("Medium", 3)
+        
+        prob_critical = float(proba[idx_critical])
+        prob_high     = float(proba[idx_high])
+        prob_low      = float(proba[idx_low])
+        prob_medium   = float(proba[idx_medium])
+        
+        risk_score = (prob_low * 0.12) + (prob_medium * 0.33) + (prob_high * 0.58) + (prob_critical * 0.85)
 
-        # Feature-importance-weighted explanation
         explanation = {}
         for feat in FEATURES:
             imp = feature_importances.get(feat, feature_importances.get(f'f{FEATURES.index(feat)}', 0.0))
             label = FEATURE_LABELS.get(feat, feat)
             explanation[label] = round(imp, 4)
-        # Sort by importance and return top 6
         explanation = dict(sorted(explanation.items(), key=lambda x: x[1], reverse=True)[:6])
     else:
-        # Fallback heuristic
         score = 0.0
         if profile.age > 50: score += 0.15
         if profile.bmi > 30: score += 0.12

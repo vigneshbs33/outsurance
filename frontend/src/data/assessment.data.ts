@@ -40,8 +40,6 @@ export const MEMBER_CARDS: MemberCardItem[] = [
   { id: InsuredMember.SISTER, label: 'Sister', hasCounter: false },
   { id: InsuredMember.UNCLE, label: 'Uncle', hasCounter: false },
   { id: InsuredMember.AUNT, label: 'Aunt', hasCounter: false },
-  { id: InsuredMember.LIVE_IN_PARTNER_MALE, label: 'Live-in Partner (Male)', hasCounter: false },
-  { id: InsuredMember.LIVE_IN_PARTNER_FEMALE, label: 'Live-in Partner (Female)', hasCounter: false },
 ];
 
 export const ILLNESSES = [

@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import { assessHealthProfile, chatWithAdvisor, processLabReport } from '../../lib/api';
 import { saveAssessmentResult, supabase } from '../../lib/supabase';
 import { AnnotationBox, FormField } from '../../components/editorial';
-import { Lock, FileText, ArrowRight, ShieldCheck, Check, Plus, Minus, Info, Sparkles, ChevronRight } from 'lucide-react';
+import { Lock, FileText, ArrowRight, ShieldCheck, Check, Plus, Minus, Info, Sparkles, ChevronRight, ChevronDown } from 'lucide-react';
 import { HealthCondition, IntakeLanguage, InsuredMember } from '../../enums/assessment.enum';
-import { LANGUAGES, MEMBER_CARDS, ILLNESSES, POPULAR_CITIES } from '../../data/assessment.data';
+import { LANGUAGES, MEMBER_CARDS, ILLNESSES, POPULAR_CITIES, MemberCardItem } from '../../data/assessment.data';
 
 export default function AssessmentPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [userId, setUserId] = useState<string | null>(null);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
 
   const [language, setLanguage] = useState<IntakeLanguage>(IntakeLanguage.ENGLISH);
 
@@ -33,8 +34,6 @@ export default function AssessmentPage() {
     [InsuredMember.SISTER]: false,
     [InsuredMember.UNCLE]: false,
     [InsuredMember.AUNT]: false,
-    [InsuredMember.LIVE_IN_PARTNER_MALE]: false,
-    [InsuredMember.LIVE_IN_PARTNER_FEMALE]: false,
   });
   const [sonCount, setSonCount] = useState(0);
   const [daughterCount, setDaughterCount] = useState(0);
@@ -64,6 +63,52 @@ export default function AssessmentPage() {
   const [smoker, setSmoker] = useState('No');
   const [income, setIncome] = useState('8,00,000');
   const [budget, setBudget] = useState('3,500');
+
+  interface MemberVitals {
+    height: string;
+    weight: string;
+    hba1c: string;
+    bp: string;
+    smoker: string;
+  }
+
+  const [memberVitalsInput, setMemberVitalsInput] = useState<Record<string, MemberVitals>>({});
+  const [showAllMembers, setShowAllMembers] = useState(false);
+
+  const getMemberVitals = (m: string): MemberVitals => {
+    if (m === 'Self') {
+      return { height, weight, hba1c, bp, smoker };
+    }
+    return memberVitalsInput[m] ?? { height: '170', weight: '65', hba1c: '5.4', bp: '120', smoker: 'No' };
+  };
+
+  const getCalculatedBMI = (m: string): string => {
+    const v = getMemberVitals(m);
+    const h = parseFloat(v.height);
+    const w = parseFloat(v.weight);
+    if (h > 0 && w > 0) {
+      return (w / ((h / 100) * (h / 100))).toFixed(1);
+    }
+    return '23.0';
+  };
+
+  const handleVitalChange = (m: string, field: keyof MemberVitals, val: string) => {
+    if (m === 'Self') {
+      if (field === 'height') setHeight(val);
+      if (field === 'weight') setWeight(val);
+      if (field === 'hba1c') setHba1c(val);
+      if (field === 'bp') setBp(val);
+      if (field === 'smoker') setSmoker(val);
+    } else {
+      setMemberVitalsInput((prev) => ({
+        ...prev,
+        [m]: {
+          ...(prev[m] ?? { height: '170', weight: '65', hba1c: '5.4', bp: '120', smoker: 'No' }),
+          [field]: val,
+        },
+      }));
+    }
+  };
 
   const [groups, setGroups] = useState<Array<{ id: string; name: string; members: string[] }>>([
     { id: 'group_1', name: 'Group A', members: [] },
@@ -178,7 +223,7 @@ export default function AssessmentPage() {
 
     let spouseAge: number | undefined;
     activeMembersList.forEach((m) => {
-      if (['Wife', 'Husband', 'Live-in Partner (Male)', 'Live-in Partner (Female)'].includes(m)) {
+      if (['Wife', 'Husband'].includes(m)) {
         spouseAge = memberAges[m];
       }
     });
@@ -309,17 +354,13 @@ export default function AssessmentPage() {
 
     const serializedVitals: Record<string, Record<string, string>> = {};
     activeMembersList.forEach((m) => {
-      const up = memberUploads[m]?.summary;
-      if (m === 'Self') {
-        serializedVitals[m] = { height, weight, hba1c, bp };
-      } else {
-        serializedVitals[m] = {
-          height: '170',
-          weight: up ? String(Math.round(up.bmi * (1.7 * 1.7))) : '65',
-          hba1c: up ? String(up.hba1c) : '5.4',
-          bp: up ? String(up.bp_systolic) : '120',
-        };
-      }
+      const v = getMemberVitals(m);
+      serializedVitals[m] = {
+        height: v.height,
+        weight: v.weight,
+        hba1c: v.hba1c,
+        bp: v.bp,
+      };
     });
 
     const finalData = {
@@ -356,19 +397,12 @@ export default function AssessmentPage() {
         }
         router.push(`/dashboard?score=${Math.round(result.risk_assessment.risk_score * 100)}&tier=${result.risk_assessment.risk_tier}`);
       })
-      .catch(async () => {
-        if (userId) {
-          await saveAssessmentResult(
-            userId,
-            finalData,
-            { risk_score: 0.63, risk_tier: 'MEDIUM' },
-            [
-              { id: 3, suitability_score: 8.4 },
-              { id: 2, suitability_score: 7.2 },
-            ]
-          );
-        }
-        router.push('/dashboard?score=63&tier=MEDIUM&mode=simulated');
+      .catch((err) => {
+        setAssessmentError(
+          err instanceof Error
+            ? err.message
+            : 'The risk assessment pipeline is currently unavailable. Please verify the FastAPI backend server is online and try again.'
+        );
       });
 
     return () => clearInterval(interval);
@@ -433,14 +467,24 @@ export default function AssessmentPage() {
         }
       }));
 
+      const parsedH = parseFloat(m === 'Self' ? height : (memberVitalsInput[m]?.height || '170')) || 170;
+      const parsedW = Math.round(extracted.bmi * ((parsedH / 100) * (parsedH / 100)));
       if (m === 'Self') {
         setHba1c(String(extracted.hba1c));
         setBp(String(extracted.bp_systolic));
-        const h = parseFloat(height) || 172;
-        const w = Math.round(extracted.bmi * ((h / 100) * (h / 100)));
-        setWeight(String(w));
+        setWeight(String(parsedW));
         setExtractedSummary(extracted);
         setUploadState('done');
+      } else {
+        setMemberVitalsInput((prev) => ({
+          ...prev,
+          [m]: {
+            ...(prev[m] ?? { height: '170', weight: '65', hba1c: '5.4', bp: '120', smoker: 'No' }),
+            hba1c: String(extracted.hba1c),
+            bp: String(extracted.bp_systolic),
+            weight: String(parsedW),
+          }
+        }));
       }
 
       setChatMessages((prev) => [
@@ -599,17 +643,22 @@ export default function AssessmentPage() {
     setStep(step - 1);
   }
 
-  const displayedMemberCards = useMemo(() => {
+  const displayedMemberCards: MemberCardItem[] = useMemo(() => {
     return MEMBER_CARDS.map((card) => {
       if (card.id === InsuredMember.WIFE && gender === 'Female') {
         return { id: InsuredMember.HUSBAND, label: 'Husband', hasCounter: false };
       }
-      if (card.id === InsuredMember.LIVE_IN_PARTNER_MALE && gender === 'Female') {
-        return { id: InsuredMember.LIVE_IN_PARTNER_FEMALE, label: 'Live-in Partner', hasCounter: false };
-      }
       return card;
     });
   }, [gender]);
+
+  const topSixMembers = useMemo(() => {
+    return displayedMemberCards.slice(0, 6);
+  }, [displayedMemberCards]);
+
+  const remainingMembers = useMemo(() => {
+    return displayedMemberCards.slice(6);
+  }, [displayedMemberCards]);
 
   return (
     <main className="min-h-screen bg-white px-4 sm:px-8 py-8 lg:px-12">
@@ -722,7 +771,7 @@ export default function AssessmentPage() {
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {displayedMemberCards.map((card) => {
+                    {topSixMembers.map((card) => {
                       const isSelected = selectedMembers[card.id] || (card.id === InsuredMember.SON && sonCount > 0) || (card.id === InsuredMember.DAUGHTER && daughterCount > 0);
                       return (
                         <div
@@ -763,6 +812,63 @@ export default function AssessmentPage() {
                         </div>
                       );
                     })}
+                  </div>
+
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllMembers(!showAllMembers)}
+                      className="w-full flex items-center justify-between p-4 border border-neutral-200 hover:border-black transition-colors font-mono text-xs uppercase tracking-wider text-neutral-500 hover:text-black cursor-pointer bg-white"
+                    >
+                      <span>{showAllMembers ? 'Hide Additional Members' : 'More Family Members (Grandparents, In-laws, Siblings, etc.)'}</span>
+                      <ChevronDown className={`transform transition-transform duration-300 ${showAllMembers ? 'rotate-180' : ''}`} size={16} />
+                    </button>
+
+                    {showAllMembers && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 animate-fadeIn">
+                        {remainingMembers.map((card) => {
+                          const isSelected = selectedMembers[card.id] || (card.id === InsuredMember.SON && sonCount > 0) || (card.id === InsuredMember.DAUGHTER && daughterCount > 0);
+                          return (
+                            <div
+                              key={card.id}
+                              onClick={() => !card.hasCounter && handleMemberToggle(card.id)}
+                              className={`p-4 border transition-all flex flex-col justify-between h-28 ${card.hasCounter ? '' : 'cursor-pointer'} ${
+                                isSelected ? 'border-black bg-neutral-50 font-bold' : 'border-neutral-200 hover:border-black'
+                              }`}
+                            >
+                              <span className="font-mono text-xs uppercase tracking-wider text-black">{card.label}</span>
+                              {card.hasCounter ? (
+                                <div className="flex items-center justify-between mt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => card.id === InsuredMember.SON ? handleSonIncrement(-1) : handleDaughterIncrement(-1)}
+                                    className="h-7 w-7 flex items-center justify-center border border-neutral-200 hover:border-black text-sm font-mono"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="font-mono text-sm">{card.id === InsuredMember.SON ? sonCount : daughterCount}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => card.id === InsuredMember.SON ? handleSonIncrement(1) : handleDaughterIncrement(1)}
+                                    className="h-7 w-7 flex items-center justify-center border border-neutral-200 hover:border-black text-sm font-mono"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex justify-end">
+                                  {isSelected ? (
+                                    <Check size={14} className="text-black" />
+                                  ) : (
+                                    <Plus size={14} className="text-neutral-300" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1061,91 +1167,111 @@ export default function AssessmentPage() {
             )}
 
             {step === 7 && (
-              <div className="space-y-6 animate-fadeIn">
+              <div className="space-y-8 animate-fadeIn">
                 <AnnotationBox title="Vitals & Financial Tuner">
-                  Adjust clinical readings for the primary account holder.
+                  Adjust clinical readings for each insured family member to ensure high-accuracy match matching.
                 </AnnotationBox>
 
-                <div className="grid gap-6">
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <FormField label="Height (cm)">
-                      <input
-                        className="field-input font-mono"
-                        value={height}
-                        onChange={(e) => setHeight(e.target.value.replace(/\D/g, ''))}
-                      />
-                    </FormField>
+                <div className="space-y-8">
+                  {activeMembersList.map((m) => {
+                    const v = getMemberVitals(m);
+                    const memberBmi = getCalculatedBMI(m);
+                    return (
+                      <div key={m} className="border border-neutral-200 p-6 space-y-6">
+                        <div className="font-mono text-xs uppercase tracking-wider font-bold text-black border-b border-neutral-100 pb-2">
+                          {m} Clinical Vitals
+                        </div>
 
-                    <FormField label="Weight (kg)">
-                      <input
-                        className="field-input font-mono"
-                        value={weight}
-                        onChange={(e) => setWeight(e.target.value.replace(/\D/g, ''))}
-                      />
-                    </FormField>
-                  </div>
+                        <div className="grid gap-6">
+                          <div className="grid gap-6 sm:grid-cols-2">
+                            <FormField label="Height (cm)">
+                              <input
+                                className="field-input font-mono"
+                                value={v.height}
+                                onChange={(e) => handleVitalChange(m, 'height', e.target.value.replace(/\D/g, ''))}
+                              />
+                            </FormField>
 
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <FormField label="Calculated BMI (kg/m²)">
-                      <div className="field-input font-mono bg-neutral-50 flex items-center px-2 font-bold text-neutral-600">
-                        {calculatedBMI} kg/m²
+                            <FormField label="Weight (kg)">
+                              <input
+                                className="field-input font-mono"
+                                value={v.weight}
+                                onChange={(e) => handleVitalChange(m, 'weight', e.target.value.replace(/\D/g, ''))}
+                              />
+                            </FormField>
+                          </div>
+
+                          <div className="grid gap-6 sm:grid-cols-2">
+                            <FormField label="Calculated BMI (kg/m²)">
+                              <div className="field-input font-mono bg-neutral-50 flex items-center px-2 font-bold text-neutral-600">
+                                {memberBmi} kg/m²
+                              </div>
+                            </FormField>
+
+                            <div>
+                              <span className="field-label block mb-2">Consume tobacco products?</span>
+                              <div className="flex gap-4">
+                                {['No', 'Yes'].map((val) => (
+                                  <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => handleVitalChange(m, 'smoker', val)}
+                                    className={`flex-1 h-11 border font-mono text-xs uppercase tracking-wider transition-all ${
+                                      v.smoker === val
+                                        ? 'bg-black text-white border-black'
+                                        : 'bg-white text-neutral-400 border-neutral-200 hover:border-black'
+                                    }`}
+                                  >
+                                    {val}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-6 sm:grid-cols-2">
+                            <FormField label="Glycated Hemoglobin HbA1c (%)">
+                              <input
+                                className="field-input font-mono"
+                                value={v.hba1c}
+                                onChange={(e) => handleVitalChange(m, 'hba1c', e.target.value)}
+                              />
+                            </FormField>
+
+                            <FormField label="Systolic Blood Pressure (mmHg)">
+                              <input
+                                className="field-input font-mono"
+                                value={v.bp}
+                                onChange={(e) => handleVitalChange(m, 'bp', e.target.value.replace(/\D/g, ''))}
+                              />
+                            </FormField>
+                          </div>
+                        </div>
                       </div>
-                    </FormField>
+                    );
+                  })}
 
-                    <div>
-                      <span className="field-label block mb-2">Consume tobacco products?</span>
-                      <div className="flex gap-4">
-                        {['No', 'Yes'].map((val) => (
-                          <button
-                            key={val}
-                            onClick={() => setSmoker(val)}
-                            className={`flex-1 h-11 border font-mono text-xs uppercase tracking-wider transition-all ${
-                              smoker === val
-                                ? 'bg-black text-white border-black'
-                                : 'bg-white text-neutral-400 border-neutral-200 hover:border-black'
-                            }`}
-                          >
-                            {val}
-                          </button>
-                        ))}
-                      </div>
+                  <div className="border border-neutral-200 p-6 space-y-6">
+                    <div className="font-mono text-xs uppercase tracking-wider font-bold text-black border-b border-neutral-100 pb-2">
+                      Household Financial Parameters
                     </div>
-                  </div>
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <FormField label="Annual Income (₹)">
+                        <input
+                          className="field-input font-mono"
+                          value={income}
+                          onChange={(e) => setIncome(formatCommas(e.target.value))}
+                        />
+                      </FormField>
 
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <FormField label="Glycated Hemoglobin HbA1c (%)">
-                      <input
-                        className="field-input font-mono"
-                        value={hba1c}
-                        onChange={(e) => setHba1c(e.target.value)}
-                      />
-                    </FormField>
-
-                    <FormField label="Systolic Blood Pressure (mmHg)">
-                      <input
-                        className="field-input font-mono"
-                        value={bp}
-                        onChange={(e) => setBp(e.target.value.replace(/\D/g, ''))}
-                      />
-                    </FormField>
-                  </div>
-
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <FormField label="Annual Income (₹)">
-                      <input
-                        className="field-input font-mono"
-                        value={income}
-                        onChange={(e) => setIncome(formatCommas(e.target.value))}
-                      />
-                    </FormField>
-
-                    <FormField label="Ideal Monthly Premium Budget (₹)">
-                      <input
-                        className="field-input font-mono"
-                        value={budget}
-                        onChange={(e) => setBudget(formatCommas(e.target.value))}
-                      />
-                    </FormField>
+                      <FormField label="Ideal Monthly Premium Budget (₹)">
+                        <input
+                          className="field-input font-mono"
+                          value={budget}
+                          onChange={(e) => setBudget(formatCommas(e.target.value))}
+                        />
+                      </FormField>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1250,15 +1376,54 @@ export default function AssessmentPage() {
 
             {step === 10 && (
               <div className="py-16 text-center space-y-6">
-                <div className="flex justify-center">
-                  <span className="h-10 w-10 border-2 border-black border-t-transparent animate-spin rounded-full" />
-                </div>
-                <div className="font-mono text-3xl font-black uppercase tracking-widest text-black">
-                  FINDING MATCHES
-                </div>
-                <p className="max-w-md mx-auto font-mono text-xs leading-6 text-neutral-400 h-10">
-                  {loadingText}
-                </p>
+                {assessmentError ? (
+                  <div className="max-w-md mx-auto space-y-6 p-8 border border-neutral-200 bg-white rounded-xl shadow-sm animate-fadeIn">
+                    <div className="flex justify-center">
+                      <span className="text-4xl">⚠️</span>
+                    </div>
+                    <div className="font-mono text-xl font-bold uppercase tracking-widest text-black">
+                      Risk Assessment Error
+                    </div>
+                    <p className="font-mono text-xs leading-6 text-neutral-500">
+                      {assessmentError}
+                    </p>
+                    <div className="flex flex-col gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAssessmentError(null);
+                          setStep(9);
+                          setTimeout(() => setStep(10), 100);
+                        }}
+                        className="mono-btn-primary w-full py-3 rounded-xl font-mono text-xs uppercase tracking-wider"
+                      >
+                        Retry Risk Estimation
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAssessmentError(null);
+                          setStep(7);
+                        }}
+                        className="mono-btn-secondary w-full py-3 rounded-xl font-mono text-xs uppercase tracking-wider"
+                      >
+                        Edit Health Vitals
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex justify-center">
+                      <span className="h-10 w-10 border-2 border-black border-t-transparent animate-spin rounded-full" />
+                    </div>
+                    <div className="font-mono text-3xl font-black uppercase tracking-widest text-black">
+                      FINDING MATCHES
+                    </div>
+                    <p className="max-w-md mx-auto font-mono text-xs leading-6 text-neutral-400 h-10">
+                      {loadingText}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

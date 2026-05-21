@@ -98,16 +98,12 @@ export async function chatWithAdvisor(
 }
 
 export async function processLabReport(rawText: string) {
-  try {
-    const result = await extractHealthMetrics(rawText);
-    const extracted = result.extracted_result;
-    if (typeof extracted === 'object' && extracted.hba1c) {
-      return extracted;
-    }
-    return { hba1c: 6.2, bp_systolic: 128, bmi: 26.5 };
-  } catch {
-    return { hba1c: 6.2, bp_systolic: 128, bmi: 26.5 };
+  const result = await extractHealthMetrics(rawText);
+  const extracted = result.extracted_result;
+  if (typeof extracted === 'object' && extracted.hba1c) {
+    return extracted;
   }
+  throw new Error('Failed to extract health metrics from report');
 }
 
 export function generateOnDeviceReasoning(plan: Record<string, unknown>, userProfile: Record<string, unknown>) {
