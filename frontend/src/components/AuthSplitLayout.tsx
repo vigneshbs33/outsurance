@@ -145,7 +145,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
       
       <div className="absolute top-8 right-8 z-50 flex items-center gap-2 select-none cursor-pointer" onClick={() => router.push('/')}>
         <img src="/fidsurance-logo.png" alt="Outsurance Logo" className="h-8 w-auto object-contain" />
-        <span className="font-space-mono text-[13px] tracking-[0.05em] text-black font-bold uppercase select-none leading-none -ml-1">
+        <span className="font-space-mono text-[13px] tracking-[0.05em] font-bold text-[var(--ink)] uppercase select-none leading-none -ml-1">
           OUTSURANCE
         </span>
       </div>
@@ -156,7 +156,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
           <p className="font-[var(--font-heading)] text-5xl font-black uppercase tracking-tight">
             Outsurance
           </p>
-          <p className="font-mono text-xs tracking-widest text-neutral-400">ACCOUNT CREATED. REDIRECTING...</p>
+          <p className="font-mono text-xs tracking-widest text-[var(--ink-soft)]">ACCOUNT CREATED. REDIRECTING...</p>
         </div>
       </div>
 
@@ -222,7 +222,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
 
               <div className="login-item flex items-center justify-between gap-4 py-1">
                 <div className="h-[1px] bg-neutral-200 w-full" />
-                <span className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest whitespace-nowrap">OR</span>
+                <span className="font-mono text-[9px] text-[var(--ink-soft)] uppercase tracking-widest whitespace-nowrap">OR</span>
                 <div className="h-[1px] bg-neutral-200 w-full" />
               </div>
 
@@ -231,8 +231,8 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={loading}
-                  className="w-full border border-neutral-200 hover:border-black hover:bg-neutral-50 transition-all py-3 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-wider text-black font-bold cursor-pointer"
-                  style={{ borderRadius: '2px' }}
+                  className="w-full border border-neutral-200 hover:border-black hover:bg-neutral-50 transition-all py-3 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-wider font-bold text-[var(--ink)] cursor-pointer"
+                  style={{ borderRadius: '12px' }}
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
                     <g transform="matrix(1, 0, 0, 1, 0, 0)">
@@ -247,9 +247,9 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
               </div>
 
               <div className="login-item border-t border-neutral-200 pt-5">
-                <p className="text-xs font-mono text-neutral-400 uppercase">
+                <p className="text-xs font-mono text-[var(--ink-soft)] uppercase">
                   New to Outsurance?{' '}
-                  <button type="button" className="underline text-black font-bold ml-1 uppercase" onClick={() => setMode('signup')}>
+                  <button type="button" className="underline font-bold text-[var(--ink)] ml-1 uppercase" onClick={() => setMode('signup')}>
                     Create Account
                   </button>
                 </p>
@@ -261,7 +261,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
             <div className="register-item">
               <SectionEyebrow>New Member</SectionEyebrow>
               <h1 className="mt-4 font-[var(--font-heading)] text-[38px] font-black tracking-tight uppercase leading-none text-black">Create Account.</h1>
-              <p className="mt-3 text-sm text-neutral-500">Matches will be generated based on your diagnostic vitals.</p>
+              <p className="mt-3 text-sm text-[var(--ink-mid)]">Matches will be generated based on your diagnostic vitals.</p>
             </div>
 
             <form onSubmit={onSubmit} className="mt-10 space-y-6">
@@ -283,7 +283,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </FormField>
-                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-400">
+                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ink-soft)]">
                   Strength: {passwordStrength}
                 </p>
               </div>
@@ -304,7 +304,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
                 className="register-item flex items-start gap-3 text-left w-full hover:opacity-80 transition-opacity"
               >
                 <span className="font-mono text-sm text-black">{termsAgreed ? '[X]' : '[ ]'}</span>
-                <span className="text-[10px] font-mono leading-5 text-neutral-500 uppercase">
+                <span className="text-[10px] font-mono leading-5 text-[var(--ink-mid)] uppercase">
                   I agree to the <span className="underline text-black font-semibold">Terms of Service</span> and <span className="underline text-black font-semibold">Privacy Policy</span>.
                 </span>
               </button>
@@ -323,7 +323,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
 
               <div className="register-item flex items-center justify-between gap-4 py-1">
                 <div className="h-[1px] bg-neutral-200 w-full" />
-                <span className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest whitespace-nowrap">OR</span>
+                <span className="font-mono text-[9px] text-[var(--ink-soft)] uppercase tracking-widest whitespace-nowrap">OR</span>
                 <div className="h-[1px] bg-neutral-200 w-full" />
               </div>
 
@@ -332,8 +332,8 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={loading}
-                  className="w-full border border-neutral-200 hover:border-black hover:bg-neutral-50 transition-all py-3 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-wider text-black font-bold cursor-pointer"
-                  style={{ borderRadius: '2px' }}
+                  className="w-full border border-neutral-200 hover:border-black hover:bg-neutral-50 transition-all py-3 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-wider font-bold text-[var(--ink)] cursor-pointer"
+                  style={{ borderRadius: '12px' }}
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
                     <g transform="matrix(1, 0, 0, 1, 0, 0)">
@@ -348,9 +348,9 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
               </div>
 
               <div className="register-item border-t border-neutral-200 pt-5">
-                <p className="text-xs font-mono text-neutral-400 uppercase">
+                <p className="text-xs font-mono text-[var(--ink-soft)] uppercase">
                   Already have an account?{' '}
-                  <button type="button" className="underline text-black font-bold ml-1 uppercase" onClick={() => setMode('login')}>
+                  <button type="button" className="underline font-bold text-[var(--ink)] ml-1 uppercase" onClick={() => setMode('login')}>
                     Sign In
                   </button>
                 </p>

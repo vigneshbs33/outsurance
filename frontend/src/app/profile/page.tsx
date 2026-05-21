@@ -36,20 +36,24 @@ export default function ProfilePage() {
 
           <section className="grid gap-12 lg:grid-cols-[1.5fr_1fr]">
             <div className="space-y-8">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block mb-6">My Details</span>
-              <div className="border border-neutral-200 p-6 bg-white" style={{ borderRadius: '2px' }}>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block mb-6">My Details</span>
+              <div className="border border-neutral-200 p-6 bg-white" style={{ borderRadius: '12px' }}>
                 <div className="space-y-4">
                   <div className="flex flex-col md:flex-row md:justify-between border-b border-neutral-100 pb-3 gap-2">
-                    <span className="font-mono text-xs text-neutral-400 uppercase tracking-wider">Full Name</span>
-                    <span className="font-mono text-xs font-bold text-black uppercase">{String(profile?.full_name || 'Anonymous Member')}</span>
+                    <span className="font-mono text-xs text-[var(--ink-soft)] uppercase tracking-wider">Full Name</span>
+                    <span className="font-mono text-xs font-bold text-black uppercase">
+                      {String(profile?.full_name || '').includes(' || ') 
+                        ? String(profile?.full_name || '').split(' || ')[0] 
+                        : String(profile?.full_name || 'Anonymous Member')}
+                    </span>
                   </div>
                   <div className="flex flex-col md:flex-row md:justify-between border-b border-neutral-100 pb-3 gap-2">
-                    <span className="font-mono text-xs text-neutral-400 uppercase tracking-wider">Email Address</span>
+                    <span className="font-mono text-xs text-[var(--ink-soft)] uppercase tracking-wider">Email Address</span>
                     <span className="font-mono text-xs font-bold text-black">{String(user?.email || '-')}</span>
                   </div>
                   <div className="flex flex-col md:flex-row md:justify-between gap-2">
-                    <span className="font-mono text-xs text-neutral-400 uppercase tracking-wider">Account ID</span>
-                    <span className="font-mono text-[10px] font-bold text-neutral-500 break-all">{String(user?.id || '-')}</span>
+                    <span className="font-mono text-xs text-[var(--ink-soft)] uppercase tracking-wider">Account ID</span>
+                    <span className="font-mono text-[10px] font-bold text-[var(--ink-mid)] break-all">{String(user?.id || '-')}</span>
                   </div>
                 </div>
               </div>
@@ -59,10 +63,10 @@ export default function ProfilePage() {
               <AnnotationBox title="Your Privacy Matters">
                 We process your health parameters strictly locally on your device to keep them safe. Your name and details are kept separate from your health data.
               </AnnotationBox>
-              <div className="border border-neutral-200 p-6 bg-neutral-50 space-y-6" style={{ borderRadius: '2px' }}>
+              <div className="border border-neutral-200 p-6 bg-neutral-50 space-y-6" style={{ borderRadius: '12px' }}>
                 <div className="space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">Session Security</span>
-                  <p className="font-mono text-[11px] leading-5 text-neutral-500">
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Session Security</span>
+                  <p className="font-mono text-[11px] leading-5 text-[var(--ink-mid)]">
                     Your session is kept secure and private. When you are ready to log out, just click the button below to clear all temporary data.
                   </p>
                 </div>

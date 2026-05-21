@@ -124,6 +124,24 @@ class UserProfile(BaseModel):
     has_hypertension: Optional[bool] = None
     coverage_for: Optional[str] = 'Individual'
     family_members: Optional[int] = 1
+    
+    # PolicyBazaar Form fields
+    gender: Optional[str] = None
+    city: Optional[str] = None
+    full_name: Optional[str] = None
+    mobile_number: Optional[str] = None
+    covered_members: Optional[List[str]] = []
+    member_ages: Optional[Dict[str, int]] = {}
+    medical_history: Optional[List[str]] = []
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    lab_report_text: Optional[str] = None
+    language: Optional[str] = 'English'
+    groups: Optional[List[Dict[str, Any]]] = []
+    member_medical_history: Optional[Dict[str, List[str]]] = {}
+    member_vitals: Optional[Dict[str, Dict[str, Any]]] = {}
+    member_dobs: Optional[Dict[str, str]] = {}
+
 
 class ExtractionRequest(BaseModel):
     raw_text: Optional[str] = None
@@ -242,8 +260,10 @@ def assess_user(profile: UserProfile, request: Request):
     # Stages 2 + 3: Rank plans
     top_plans = rank_plans(INSURANCE_PLANS, user_dict)
 
-    # Gemma: plain-English explanation per plan
-    for plan in top_plans:
+    # Gemma: plain-English explanation per plan in parallel
+    from concurrent.futures import ThreadPoolExecutor
+
+    def generate_single_explanation(plan):
         cond_str = ""
         if user_dict['has_diabetes']:   cond_str += "diabetes, "
         if user_dict['has_hypertension']: cond_str += "hypertension, "
@@ -268,6 +288,9 @@ def assess_user(profile: UserProfile, request: Request):
                 f"This {plan['type']} plan scored {plan['suitability_score']}/10 for your profile, "
                 f"offering good coverage for your age and health conditions."
             )
+
+    with ThreadPoolExecutor(max_workers=len(top_plans)) as executor:
+        list(executor.map(generate_single_explanation, top_plans))
 
     return {
         "risk_assessment": {

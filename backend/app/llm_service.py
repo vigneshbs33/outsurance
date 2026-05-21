@@ -5,6 +5,36 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def call_ollama_api(system_prompt: str, user_prompt: str, max_tokens: int = 150) -> str:
+    ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    ollama_model = os.getenv("OLLAMA_MODEL", "gemma3:1b")
+    
+    url = f"{ollama_host}/api/chat"
+    payload = {
+        "model": ollama_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "stream": False,
+        "options": {
+            "temperature": 0.3,
+            "num_predict": max_tokens
+        }
+    }
+    headers = {"Content-Type": "application/json"}
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=40.0)
+        if response.status_code == 200:
+            data = response.json()
+            return data["message"]["content"].strip()
+        else:
+            print(f"[WARN] Local Ollama returned status {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"[WARN] Local Ollama call failed (is Ollama running?): {e}")
+    return None
+
 def call_openai_api(system_prompt: str, user_prompt: str, max_tokens: int = 150) -> str:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -68,18 +98,13 @@ def call_gemini_fallback(system_prompt: str, user_prompt: str, max_tokens: int =
     return None
 
 def generate_text(system_prompt: str, user_prompt: str, max_tokens: int = 150) -> str:
-    # 1. Primary: OpenAI API
-    openai_text = call_openai_api(system_prompt, user_prompt, max_tokens)
-    if openai_text:
-        return openai_text
+    # 1. Primary: Local Ollama (e.g. gemma3:1b)
+    local_text = call_ollama_api(system_prompt, user_prompt, max_tokens)
+    if local_text:
+        return local_text
 
-    # 2. Fallback: Gemini API
-    gemini_text = call_gemini_fallback(system_prompt, user_prompt, max_tokens)
-    if gemini_text:
-        return gemini_text
-
-    # 3. No Hardcoded Fallbacks! It's real production now.
-    raise RuntimeError("Both OpenAI and Gemini APIs failed to generate a response. No fallback available in production mode.")
+    # Disable other fallbacks (Only Ollama allowed for now)
+    raise RuntimeError("Local Ollama failed to generate a response, and fallbacks are currently disabled.")
 
 def load_model():
     pass

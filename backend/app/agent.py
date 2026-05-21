@@ -43,10 +43,11 @@ _INTENT_RULES: List[Tuple[str, List[str], int]] = [
     ("reassess", [
         r"re[-\s]?assess", r"re[-\s]?run", r"re[-\s]?calculat",
         r"what if (i also|i had|my|i have|we add)",
-        r"add (kidney|cancer|heart|thyroid|lung|asthma|arthritis|liver|copd)",
+        r"add (kidney|cancer|heart|thyroid|lung|asthma|arthritis|liver|copd|diabetes|hypertension)",
         r"include (my|a |the )",
         r"also have", r"new condition", r"update (my )?profile",
         r"change (my )?condition", r"now (i have|i am)",
+        r"i (have|had|got|suffer from|was diagnosed with) (a |an )?(heart attack|cardiac|kidney|cancer|thyroid|lung|asthma|arthritis|liver|copd|diabetes|hypertension)",
     ], 10),
 
     ("budget_sim", [
@@ -61,16 +62,11 @@ _INTENT_RULES: List[Tuple[str, List[str], int]] = [
 
     ("stress_test", [
         r"stress.?test",
-        r"cardiac|heart attack|angioplast",
-        r"\bicu\b", r"intensive care",
-        r"\bcancer\b", r"chemo",
-        r"\bstroke\b", r"cerebral",
-        r"knee|hip.*replac",
-        r"appendix|appendicit",
-        r"diabetic (emergency|crisis|dka)",
-        r"(how much|what).*(cost|pay|out.of.pocket|cover)",
-        r"(hospital|surgery|operation).*cost",
-        r"medical emergency", r"worst case",
+        r"worst.?case",
+        r"out\.?of\.?pocket",
+        r"how much.*(cost|pay|cover)",
+        r"(hospital|surgery|operation|treatment|emergency).*(cost|bill|price)",
+        r"(cost|pay|bill|out.of.pocket).*(cardiac|heart|attack|angioplast|icu|intensive|cancer|chemo|stroke|cerebral|knee|hip|appendix)",
     ], 8),
 
     ("compare", [
@@ -104,7 +100,7 @@ _INTENT_RULES: List[Tuple[str, List[str], int]] = [
 ]
 
 
-def _classify_intent(message: str) -> Optional[str]:
+def _classify_intent_regex(message: str) -> Optional[str]:
     """Return the highest-priority intent matching the user message, or None."""
     msg = message.lower()
     best_intent, best_priority = None, -1
@@ -115,6 +111,60 @@ def _classify_intent(message: str) -> Optional[str]:
                     best_intent, best_priority = intent, priority
                 break
     return best_intent
+
+
+def _classify_intent(message: str, llm_generate: Optional[Callable] = None) -> Optional[str]:
+    """Classify user intent using a hybrid LLM + Regex classifier."""
+    msg = message.lower()
+    
+    # 1. Deterministic high-priority regex checks
+    if re.search(r"stress.?test|worst.?case|out.?of.?pocket", msg):
+        return "stress_test"
+    if re.search(r"compar(e|ing|ison)|\bvs\.?\b|\bversus\b|difference between", msg):
+        return "compare"
+    if re.search(r"budget|premium|payment|afford", msg) and not re.search(r"heart|cardiac|attack|cancer|diabetes|hypertension", msg):
+        return "budget_sim"
+        
+    # 2. LLM classification for intelligent, context-aware intent detection
+    if llm_generate:
+        sys_prompt = (
+            "You are an intent classifier for a health insurance assistant.\n"
+            "Classify the user's latest query into exactly one of these categories:\n"
+            "'reassess', 'budget_sim', 'stress_test', 'compare', 'explain_risk', 'plan_info', 'general_chat'.\n\n"
+            "Examples:\n"
+            "Query: I had a heart attack\n"
+            "Category: reassess\n\n"
+            "Query: what if I have a heart attack?\n"
+            "Category: reassess\n\n"
+            "Query: diagnosed with cancer\n"
+            "Category: reassess\n\n"
+            "Query: how much does heart surgery cost?\n"
+            "Category: stress_test\n\n"
+            "Query: stress test plan 1 for cardiac event\n"
+            "Category: stress_test\n\n"
+            "Query: change my budget to 2500 per month\n"
+            "Category: budget_sim\n\n"
+            "Query: compare plan 1 and plan 3\n"
+            "Category: compare\n\n"
+            "Query: explain my risk score\n"
+            "Category: explain_risk\n\n"
+            "Query: tell me about Maxima Health plan\n"
+            "Category: plan_info\n\n"
+            "Query: hello there!\n"
+            "Category: general_chat\n\n"
+            "Respond with ONLY the category name in lowercase (no extra words, no explanation, no punctuation, no markdown)."
+        )
+        try:
+            response = llm_generate(sys_prompt, f"Query: {message}\nCategory:", max_tokens=10).strip().lower()
+            response = response.replace("`", "").replace("'", "").replace('"', "").replace(".", "").strip()
+            valid = {'reassess', 'budget_sim', 'stress_test', 'compare', 'explain_risk', 'plan_info', 'general_chat'}
+            if response in valid:
+                return response
+        except Exception as e:
+            print(f"[WARN] LLM intent classification failed: {e}")
+
+    # 3. Fallback to full regex matching
+    return _classify_intent_regex(message)
 
 
 # ─── Entity Extraction ──────────────────────────────────────────────────────
@@ -178,7 +228,7 @@ def _extract_scenario(message: str) -> Optional[str]:
     return None
 
 
-def _extract_condition_updates(message: str, current_profile: Dict) -> Dict:
+def _extract_condition_updates_regex(message: str, current_profile: Dict) -> Dict:
     """
     Parse new conditions / flags from the message and return a dict of
     profile field updates to merge.
@@ -188,7 +238,7 @@ def _extract_condition_updates(message: str, current_profile: Dict) -> Dict:
 
     condition_rules = [
         (r'kidney|renal|nephro',                   {'chronic_count_delta': 1}),
-        (r'chronic heart|coronary|heart disease',  {'chronic_count_delta': 1}),
+        (r'chronic heart|coronary|heart disease|heart attack|cardiac',  {'chronic_count_delta': 1}),
         (r'thyroid|hypothyroid|hyperthyroid',       {'chronic_count_delta': 1}),
         (r'arthritis|joint disease',                {'chronic_count_delta': 1}),
         (r'liver|hepat|cirrhosis',                  {'chronic_count_delta': 1}),
@@ -210,6 +260,53 @@ def _extract_condition_updates(message: str, current_profile: Dict) -> Dict:
                     updates[k] = v
 
     return updates
+
+
+def _extract_condition_updates(message: str, current_profile: Dict, llm_generate: Optional[Callable] = None) -> Dict:
+    """Extract profile updates using the LLM with a fallback to regex."""
+    if not llm_generate:
+        return _extract_condition_updates_regex(message, current_profile)
+
+    sys_prompt = (
+        "You are a medical entity extraction agent for health insurance. "
+        "Analyze the user's message and output a JSON object containing profile updates. "
+        "Only output fields that are explicitly changed or added in the message. Do not include unchanged fields.\n\n"
+        "Schema rules:\n"
+        "- 'chronic_count_delta': (int) Number of new chronic conditions mentioned (e.g. heart attack, cancer, thyroid, kidney/renal, lung/asthma/COPD, liver/cirrhosis, arthritis, stroke). Each unique chronic condition counts as +1 (or +2 for cancer).\n"
+        "- 'diabetes': (int, 0 or 1) Set to 1 if user indicates they have diabetes.\n"
+        "- 'hypertension': (int, 0 or 1) Set to 1 if user indicates they have hypertension or high blood pressure.\n"
+        "- 'smoker': (int, 0 or 1) Set to 1 if user mentions smoking or tobacco.\n"
+        "- 'monthly_budget': (float) Set if user specifies a monthly premium budget (e.g. 2000).\n"
+        "- 'age': (int) Set if user specifies a new age.\n"
+        "- 'hba1c': (float) Set if user specifies a new HbA1c.\n"
+        "- 'bp_systolic': (int) Set if user specifies a new blood pressure.\n"
+        "- 'bmi': (float) Set if user specifies a new BMI.\n\n"
+        "Return ONLY a raw JSON block. No markdown, no explanation."
+    )
+    try:
+        resp = llm_generate(sys_prompt, f"User message: {message}", max_tokens=150)
+        cleaned = resp.replace("```json", "").replace("```", "").strip()
+        import json
+        updates = json.loads(cleaned)
+        
+        profile_updates = {}
+        if "chronic_count_delta" in updates:
+            delta = int(updates["chronic_count_delta"])
+            profile_updates["chronic_count"] = current_profile.get("chronic_count", 0) + delta
+            
+        for key in ["diabetes", "hypertension", "smoker", "monthly_budget", "age", "hba1c", "bp_systolic", "bmi"]:
+            if key in updates:
+                if key == "diabetes":
+                    profile_updates["has_diabetes"] = bool(updates[key])
+                if key == "hypertension":
+                    profile_updates["has_hypertension"] = bool(updates[key])
+                profile_updates[key] = updates[key]
+                
+        return profile_updates
+    except Exception as e:
+        print(f"[WARN] LLM profile extraction failed: {e}")
+        
+    return _extract_condition_updates_regex(message, current_profile)
 
 
 # ─── Tools ─────────────────────────────────────────────────────────────────
@@ -236,7 +333,9 @@ def _tool_reassess(
         "hypertension" if has_hypert else "",
     ])) or "no major pre-existing conditions"
 
-    for plan in top_plans:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def generate_single_explanation(plan):
         sys_p = (
             "You are Outsurance's AI health advisor. "
             "Write a warm, specific 2-sentence explanation of why this insurance plan "
@@ -256,6 +355,9 @@ def _tool_reassess(
             plan['plain_english_explanation'] = (
                 f"This {plan['type']} plan scored {plan['suitability_score']}/10 for your profile."
             )
+
+    with ThreadPoolExecutor(max_workers=len(top_plans)) as executor:
+        list(executor.map(generate_single_explanation, top_plans))
 
     return {
         "risk_assessment": {
@@ -541,14 +643,14 @@ def run_agent(
     current_plans: List[Dict] = list(session.get('current_plans') or [])
     updated_session = dict(session)
 
-    intent = _classify_intent(latest)
+    intent = _classify_intent(latest, llm_generate)
     tool_used: Optional[str] = None
     tool_result: Optional[Dict] = None
 
     # ── TOOL DISPATCH ───────────────────────────────────────────────────────
 
     if intent == "reassess" and profile:
-        condition_updates = _extract_condition_updates(latest, profile)
+        condition_updates = _extract_condition_updates(latest, profile, llm_generate)
         if condition_updates:
             profile.update(condition_updates)
 
@@ -607,13 +709,27 @@ def run_agent(
         history_lines.append(f"{role}: {msg.get('content', '')}")
     history = "\n".join(history_lines)
 
-    sys_prompt = (
-        "You are Outsurance's AI insurance advisor. You have access to the user's health profile, "
-        "risk assessment, and recommended insurance plans. "
-        "Respond in 2-3 sentences. Be warm, specific, and jargon-free. "
-        "When a tool result is available, summarise it clearly for the user. "
-        "Never make up plan details — only reference what is in the context."
-    )
+    stage = session.get('stage')
+
+    if stage == 'onboarding':
+        sys_prompt = (
+            "You are Outsurance's onboarding intake assistant. Your ONLY job is to collect and refine the user's health profile details "
+            "(such as members, ages, city, medical conditions, budget, smoker status, hba1c, bp, height, weight). "
+            "Do NOT recommend specific plans. If the user asks for plan recommendations or comparison, tell them: "
+            "'I cannot recommend plans yet. Please click \"End Chat & View Plans\" below to run the comparison engine.' "
+            "If the user asks random/unrelated questions (e.g. math, coding, general knowledge), say: "
+            "'I am only here to help you get your details set up smoothly. Please use another assistant for general questions.' "
+            "If the user is having difficulty expressing themselves, help them by asking helpful, clarifying questions "
+            "about their health, lifestyle, or coverage budget. Be brief (2-3 sentences max) and conversational."
+        )
+    else:
+        sys_prompt = (
+            "You are Outsurance's AI insurance advisor. You have access to the user's health profile, "
+            "risk assessment, and recommended insurance plans. "
+            "Respond in 2-3 sentences. Be warm, specific, and jargon-free. "
+            "When a tool result is available, summarise it clearly for the user. "
+            "Never make up plan details — only reference what is in the context."
+        )
 
     user_prompt = (
         f"{session_ctx}\n"

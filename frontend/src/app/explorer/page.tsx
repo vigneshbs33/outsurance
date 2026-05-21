@@ -192,7 +192,7 @@ function ExplorerContent() {
                     {query && (
                       <button 
                         onClick={() => setQuery('')}
-                        className="absolute right-2 font-mono text-[9px] uppercase tracking-widest text-neutral-400 hover:text-black transition-colors"
+                        className="absolute right-2 font-mono text-[9px] uppercase tracking-widest text-[var(--ink-soft)] hover:text-black transition-colors"
                       >
                         [ Clear ]
                       </button>
@@ -211,14 +211,14 @@ function ExplorerContent() {
                     ? 'border-black bg-neutral-50 font-bold'
                     : 'border-neutral-200 hover:border-black'
                 }`}
-                style={{ borderRadius: '2px' }}
+                style={{ borderRadius: '12px' }}
               >
                 {showFilters ? '[ Hide Filters ]' : '⚙ Refine Search Filters'}
               </button>
 
               {/* Sorting option trigger */}
-              <div className="flex items-center gap-1.5 border border-neutral-200 px-3 py-1.5" style={{ borderRadius: '2px' }}>
-                <span className="font-mono text-[9px] uppercase text-neutral-400">Sort By:</span>
+              <div className="flex items-center gap-1.5 border border-neutral-200 px-3 py-1.5" style={{ borderRadius: '12px' }}>
+                <span className="font-mono text-[9px] uppercase text-[var(--ink-soft)]">Sort By:</span>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
@@ -233,19 +233,19 @@ function ExplorerContent() {
 
               {/* Active Filter Indicators */}
               {premiumLimit < 25000 && (
-                <span className="bg-neutral-100 font-mono text-[9px] uppercase px-2 py-1" style={{ borderRadius: '2px' }}>
+                <span className="bg-neutral-100 font-mono text-[9px] uppercase px-2 py-1" style={{ borderRadius: '12px' }}>
                   Premium under ₹{premiumLimit.toLocaleString('en-IN')}
                 </span>
               )}
               {coverageMin > 500000 && (
-                <span className="bg-neutral-100 font-mono text-[9px] uppercase px-2 py-1" style={{ borderRadius: '2px' }}>
+                <span className="bg-neutral-100 font-mono text-[9px] uppercase px-2 py-1" style={{ borderRadius: '12px' }}>
                   Coverage over ₹{(coverageMin / 100000).toFixed(0)}L
                 </span>
               )}
               {(selectedTypes.length > 0 || selectedInsurers.length > 0 || premiumLimit < 25000 || coverageMin > 500000 || query) && (
                 <button
                   onClick={resetFilters}
-                  className="font-mono text-[10px] uppercase text-neutral-400 hover:text-black underline tracking-wider"
+                  className="font-mono text-[10px] uppercase text-[var(--ink-soft)] hover:text-black underline tracking-wider"
                 >
                   Clear All
                 </button>
@@ -254,10 +254,10 @@ function ExplorerContent() {
 
             {/* Expandable Calibrate filters panel */}
             {showFilters && (
-              <div className="mt-6 border border-neutral-200 p-6 bg-neutral-50 grid gap-6 md:grid-cols-2 lg:grid-cols-4 animate-slideDown" style={{ borderRadius: '2px' }}>
+              <div className="mt-6 border border-neutral-200 p-6 bg-neutral-50 grid gap-6 md:grid-cols-2 lg:grid-cols-4 animate-slideDown" style={{ borderRadius: '12px' }}>
                 {/* Premium limit slider */}
                 <div className="space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">Maximum Yearly Premium</span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Maximum Yearly Premium</span>
                   <div className="flex justify-between font-mono text-xs font-bold">
                     <span>₹3,600</span>
                     <span className="text-black bg-neutral-200 px-1.5 py-0.5 rounded">₹{premiumLimit.toLocaleString('en-IN')}</span>
@@ -275,7 +275,7 @@ function ExplorerContent() {
 
                 {/* Coverage threshold */}
                 <div className="space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">Minimum Coverage Sum</span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Minimum Coverage Sum</span>
                   <div className="flex justify-between font-mono text-xs font-bold">
                     <span>₹5L</span>
                     <span className="text-black bg-neutral-200 px-1.5 py-0.5 rounded">₹{(coverageMin / 100000).toFixed(0)}L</span>
@@ -293,7 +293,7 @@ function ExplorerContent() {
 
                 {/* Plan types list */}
                 <div className="space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">Plan Types</span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Plan Types</span>
                   <div className="max-h-[100px] overflow-y-auto space-y-1 pr-2">
                     {PLAN_TYPES.map((type) => {
                       const checked = selectedTypes.includes(type);
@@ -314,7 +314,7 @@ function ExplorerContent() {
 
                 {/* Insurers list */}
                 <div className="space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">Providers</span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Providers</span>
                   <div className="max-h-[100px] overflow-y-auto space-y-1 pr-2">
                     {INSURERS.map((insurer) => {
                       const checked = selectedInsurers.includes(insurer);
@@ -337,22 +337,22 @@ function ExplorerContent() {
           </header>
 
           {notification && (
-            <div className="mb-6 p-4 bg-black text-white font-mono text-xs uppercase tracking-wider" style={{ borderRadius: '2px' }}>
+            <div className="mb-6 p-4 bg-black text-white font-mono text-xs uppercase tracking-wider" style={{ borderRadius: '12px' }}>
               {notification}
             </div>
           )}
 
           <section className="grid gap-12 lg:grid-cols-[1.5fr_1fr]">
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block mb-6">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block mb-6">
                 Recommended Policies ({filteredAndSorted.length})
               </span>
               
               <div className="space-y-4">
-                <div className="overflow-x-auto border border-neutral-200" style={{ borderRadius: '2px' }}>
+                <div className="overflow-x-auto border border-neutral-200" style={{ borderRadius: '12px' }}>
                   <table className="w-full border-collapse font-mono text-[11px] text-left text-neutral-600">
                     <thead>
-                      <tr className="border-b border-neutral-200 bg-neutral-50 text-[9px] uppercase tracking-widest text-neutral-400">
+                      <tr className="border-b border-neutral-200 bg-neutral-50 text-[9px] uppercase tracking-widest text-[var(--ink-soft)]">
                         <th className="py-3 px-4 font-bold">Plan / Provider</th>
                         <th className="py-3 px-4 font-bold hidden sm:table-cell">Type</th>
                         <th className="py-3 px-4 font-bold">Premium</th>
@@ -377,9 +377,9 @@ function ExplorerContent() {
                             <td className="py-4 px-4">
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-black uppercase font-bold text-[12px]">{plan.name}</span>
-                                <span className="text-[9px] text-neutral-400 uppercase">{plan.insurer}</span>
+                                <span className="text-[9px] text-[var(--ink-soft)] uppercase">{plan.insurer}</span>
                                 {compared && (
-                                  <span className="mt-1 self-start font-mono text-[8px] uppercase bg-neutral-200 text-black px-1 font-bold" style={{ borderRadius: '2px' }}>
+                                  <span className="mt-1 self-start font-mono text-[8px] uppercase bg-neutral-200 text-black px-1 font-bold" style={{ borderRadius: '12px' }}>
                                     ✓ Compare
                                   </span>
                                 )}
@@ -389,10 +389,10 @@ function ExplorerContent() {
                             <td className="py-4 px-4 text-black font-semibold">
                               ₹{plan.annual_premium.toLocaleString('en-IN')}/yr
                             </td>
-                            <td className="py-4 px-4 text-neutral-500 hidden md:table-cell">
+                            <td className="py-4 px-4 text-[var(--ink-mid)] hidden md:table-cell">
                               ₹{plan.coverage.toLocaleString('en-IN')}
                             </td>
-                            <td className="py-4 px-4 uppercase hidden lg:table-cell text-neutral-500">
+                            <td className="py-4 px-4 uppercase hidden lg:table-cell text-[var(--ink-mid)]">
                               {plan.diabetes_day1 ? 'Day-1 Cover' : `${plan.pre_existing_wait_years ?? plan.preexisting_wait_years ?? 4} yrs`}
                             </td>
                             <td className="py-4 px-4 text-right">
@@ -408,7 +408,7 @@ function ExplorerContent() {
                 </div>
 
                 {filteredAndSorted.length === 0 && (
-                  <div className="border border-neutral-200 border-dashed p-12 text-center font-mono text-xs text-neutral-400" style={{ borderRadius: '2px' }}>
+                  <div className="border border-neutral-200 border-dashed p-12 text-center font-mono text-xs text-[var(--ink-soft)]" style={{ borderRadius: '12px' }}>
                     No plans match your criteria. Try adjusting the yearly premium or the minimum coverage sum to see more options!
                   </div>
                 )}
@@ -418,7 +418,7 @@ function ExplorerContent() {
                     <button
                       onClick={() => setVisibleCount((prev) => prev + 10)}
                       className="w-full h-10 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer"
-                      style={{ borderRadius: '2px' }}
+                      style={{ borderRadius: '12px' }}
                     >
                       View More (+10 Policies)
                     </button>
@@ -433,49 +433,49 @@ function ExplorerContent() {
                 <>
                   <AnnotationBox title="Active Selection">{String(activePlan.name)}</AnnotationBox>
                   
-                  <div className="border border-neutral-200 p-6 bg-neutral-50" style={{ borderRadius: '2px' }}>
-                    <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block mb-4">Policy Coverage Sheet</span>
+                  <div className="border border-neutral-200 p-6 bg-neutral-50" style={{ borderRadius: '12px' }}>
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block mb-4">Policy Coverage Sheet</span>
                     <div className="space-y-3 font-mono text-xs">
                       
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-neutral-400">Insurer</span>
+                        <span className="text-[var(--ink-soft)]">Insurer</span>
                         <span className="font-bold text-black uppercase">{activePlan.insurer}</span>
                       </div>
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-neutral-400">Plan Type</span>
+                        <span className="text-[var(--ink-soft)]">Plan Type</span>
                         <span className="font-bold text-black uppercase">{activePlan.type}</span>
                       </div>
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-neutral-400">Monthly Premium</span>
+                        <span className="text-[var(--ink-soft)]">Monthly Premium</span>
                         <span className="font-bold text-black">₹{Math.round(activePlan.annual_premium / 12).toLocaleString('en-IN')}/mo</span>
                       </div>
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-neutral-400">Coverage Sum</span>
+                        <span className="text-[var(--ink-soft)]">Coverage Sum</span>
                         <span className="font-bold text-black">₹{activePlan.coverage.toLocaleString('en-IN')}</span>
                       </div>
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-neutral-400">Wait for Health Conditions</span>
+                        <span className="text-[var(--ink-soft)]">Wait for Health Conditions</span>
                         <span className="font-bold text-black uppercase">
                           {activePlan.diabetes_day1 ? 'None (Day-1)' : `${activePlan.pre_existing_wait_years ?? activePlan.preexisting_wait_years ?? 4} Years`}
                         </span>
                       </div>
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-neutral-400">Claims Settled Successfully</span>
+                        <span className="text-[var(--ink-soft)]">Claims Settled Successfully</span>
                         <span className="font-bold text-black">{activePlan.claim_settlement_ratio || 95}%</span>
                       </div>
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-neutral-400">Hospital Networks</span>
+                        <span className="text-[var(--ink-soft)]">Hospital Networks</span>
                         <span className="font-bold text-black">{(activePlan.hospital_network_count || 8000).toLocaleString('en-IN')}+</span>
                       </div>
 
                       <div className="flex justify-between">
-                        <span className="text-neutral-400">Unlimited Refills</span>
+                        <span className="text-[var(--ink-soft)]">Unlimited Refills</span>
                         <span className="font-bold text-black uppercase">{activePlan.restoration_benefit ? 'Yes' : 'No'}</span>
                       </div>
 
@@ -483,8 +483,8 @@ function ExplorerContent() {
                   </div>
 
                   {activePlan.plain_english_explanation && (
-                    <div className="border border-neutral-200 p-4 bg-white mt-4 space-y-1.5" style={{ borderRadius: '2px' }}>
-                      <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">AI Recommendation Logic</span>
+                    <div className="border border-neutral-200 p-4 bg-white mt-4 space-y-1.5" style={{ borderRadius: '12px' }}>
+                      <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)] block">AI Recommendation Logic</span>
                       <p className="font-mono text-xs leading-5 text-neutral-700 italic">
                         "{activePlan.plain_english_explanation}"
                       </p>
@@ -492,7 +492,7 @@ function ExplorerContent() {
                   )}
 
                   {activePlan.warning_flags && activePlan.warning_flags.length > 0 && (
-                    <div className="border border-amber-200 bg-amber-50/40 p-4 mt-4 space-y-2 animate-fadeIn" style={{ borderRadius: '2px' }}>
+                    <div className="border border-amber-200 bg-amber-50/40 p-4 mt-4 space-y-2 animate-fadeIn" style={{ borderRadius: '12px' }}>
                       <span className="font-mono text-[9px] uppercase tracking-wider text-amber-800 font-bold block">⚠️ Policy Warning Flags</span>
                       <div className="flex flex-col gap-1.5">
                         {activePlan.warning_flags.map((flag: string) => (
@@ -522,7 +522,7 @@ function ExplorerContent() {
                             ? 'bg-black text-white border-black' 
                             : 'border-neutral-200 hover:border-black text-black bg-white'
                         }`}
-                        style={{ borderRadius: '2px' }}
+                        style={{ borderRadius: '12px' }}
                       >
                         {isInCompare(activePlan.id) ? '✓ Added' : 'Add to Compare'}
                       </button>
@@ -530,7 +530,7 @@ function ExplorerContent() {
                       <button 
                         onClick={() => setSelectedPlanForStress(activePlan)} 
                         className="w-full sm:flex-1 h-10 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer"
-                        style={{ borderRadius: '2px' }}
+                        style={{ borderRadius: '12px' }}
                       >
                         Stress Test
                       </button>
@@ -549,21 +549,21 @@ function ExplorerContent() {
       {compareIds.length >= 2 && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-200 bg-white p-4 lg:left-[290px] z-50 animate-slideUp">
           <div className="mx-auto max-w-[1100px] flex justify-between items-center">
-            <span className="font-mono text-xs uppercase tracking-widest text-black font-bold">
+            <span className="font-mono text-xs uppercase tracking-widest font-bold text-[var(--ink)]">
               {compareIds.length} Plans Selected
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => setIsCompareDrawerOpen(true)}
                 className="h-10 px-5 bg-black text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-wider"
-                style={{ borderRadius: '2px' }}
+                style={{ borderRadius: '12px' }}
               >
                 Compare Plans
               </button>
               <button
                 onClick={clearCompare}
                 className="h-10 px-4 border border-neutral-200 font-mono text-xs uppercase tracking-wider text-black hover:border-black"
-                style={{ borderRadius: '2px' }}
+                style={{ borderRadius: '12px' }}
               >
                 Clear
               </button>

@@ -93,7 +93,7 @@ export default function PlanDetailPage({ params }: PageProps) {
         <main className="flex-1 flex items-center justify-center p-8">
           <div className="text-center space-y-4">
             <span className="h-8 w-8 border-2 border-black border-t-transparent animate-spin rounded-full inline-block" />
-            <p className="font-mono text-xs text-neutral-400 uppercase tracking-widest">Loading plan details...</p>
+            <p className="font-mono text-xs text-[var(--ink-soft)] uppercase tracking-widest">Loading plan details...</p>
           </div>
         </main>
       </div>
@@ -128,7 +128,7 @@ export default function PlanDetailPage({ params }: PageProps) {
           <header className="flex justify-between items-center border-b border-neutral-200 pb-4">
             <button
               onClick={() => router.push('/explorer')}
-              className="font-mono text-xs uppercase tracking-widest text-neutral-400 hover:text-black transition-colors"
+              className="font-mono text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-black transition-colors"
             >
               ← Back to Plan Finder
             </button>
@@ -138,7 +138,7 @@ export default function PlanDetailPage({ params }: PageProps) {
           </header>
 
           {notification && (
-            <div className="p-4 bg-black text-white font-mono text-xs uppercase tracking-wider" style={{ borderRadius: '2px' }}>
+            <div className="p-4 bg-black text-white font-mono text-xs uppercase tracking-wider" style={{ borderRadius: '12px' }}>
               {notification}
             </div>
           )}
@@ -147,11 +147,11 @@ export default function PlanDetailPage({ params }: PageProps) {
           <div className="flex justify-between items-start gap-4">
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-[10px] bg-neutral-100 px-2 py-0.5" style={{ borderRadius: '2px' }}>
+                <span className="font-mono text-[10px] bg-neutral-100 px-2 py-0.5" style={{ borderRadius: '12px' }}>
                   {plan.type} Policy
                 </span>
                 {plan.cosine_similarity !== undefined && (
-                  <span className="font-mono text-[10px] bg-black text-white px-2 py-0.5" style={{ borderRadius: '2px' }}>
+                  <span className="font-mono text-[10px] bg-black text-white px-2 py-0.5" style={{ borderRadius: '12px' }}>
                     {Math.round(plan.cosine_similarity * 100)}% Semantic Fit
                   </span>
                 )}
@@ -165,7 +165,7 @@ export default function PlanDetailPage({ params }: PageProps) {
                     <span 
                       key={flag} 
                       className="font-mono text-[9px] uppercase tracking-wide bg-amber-50 text-amber-700 border border-amber-200/60 px-2 py-0.5"
-                      style={{ borderRadius: '2px' }}
+                      style={{ borderRadius: '12px' }}
                     >
                       ⚠️ {flag}
                     </span>
@@ -182,30 +182,30 @@ export default function PlanDetailPage({ params }: PageProps) {
               <span className="text-lg font-black leading-none mt-1">
                 {(plan.suitability_score ?? 8.4).toFixed(1)}
               </span>
-              <span className="text-[7px] uppercase tracking-widest text-neutral-400 mt-0.5">
+              <span className="text-[7px] uppercase tracking-widest text-[var(--ink-soft)] mt-0.5">
                 Match
               </span>
             </div>
           </div>
 
           {/* Premium & Coverage Sticky-style Pinned Card */}
-          <div className="mono-card bg-neutral-50 grid grid-cols-2 divide-x divide-neutral-200 p-6" style={{ borderRadius: '2px' }}>
+          <div className="mono-card bg-neutral-50 grid grid-cols-2 divide-x divide-neutral-200 p-6" style={{ borderRadius: '12px' }}>
             <div className="pr-4 space-y-1">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">Yearly Premium</span>
+              <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)] block">Yearly Premium</span>
               <span className="font-mono text-2xl font-black text-black">
                 ₹{plan.annual_premium.toLocaleString('en-IN')}
               </span>
-              <span className="font-mono text-[11px] text-neutral-500 block">
+              <span className="font-mono text-[11px] text-[var(--ink-mid)] block">
                 ₹{Math.round(plan.annual_premium / 12).toLocaleString('en-IN')} per month
               </span>
             </div>
 
             <div className="pl-6 space-y-1">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">Total Coverage</span>
+              <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)] block">Total Coverage</span>
               <span className="font-mono text-2xl font-black text-black">
                 ₹{plan.coverage.toLocaleString('en-IN')}
               </span>
-              <span className="font-mono text-[11px] text-neutral-500 block">
+              <span className="font-mono text-[11px] text-[var(--ink-mid)] block">
                 {plan.is_family_floater ? 'Full Family Coverage' : 'Individual Base Policy'}
               </span>
             </div>
@@ -213,31 +213,31 @@ export default function PlanDetailPage({ params }: PageProps) {
 
           {/* Key Facts Section (2 columns x 2 rows) */}
           <div className="space-y-4">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">Key Features</span>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Key Features</span>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '2px' }}>
-                <span className="font-mono text-[9px] uppercase text-neutral-400 block">Wait for Health Conditions</span>
+              <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '12px' }}>
+                <span className="font-mono text-[9px] uppercase text-[var(--ink-soft)] block">Wait for Health Conditions</span>
                 <span className="font-mono text-sm font-bold text-black uppercase">
                   {plan.diabetes_day1 ? 'None (Day 1)' : `${plan.pre_existing_wait_years ?? plan.preexisting_wait_years ?? 4} Years`}
                 </span>
               </div>
 
-              <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '2px' }}>
-                <span className="font-mono text-[9px] uppercase text-neutral-400 block">Diabetes covered from Day 1</span>
+              <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '12px' }}>
+                <span className="font-mono text-[9px] uppercase text-[var(--ink-soft)] block">Diabetes covered from Day 1</span>
                 <span className="font-mono text-sm font-bold text-black uppercase">
                   {plan.diabetes_day1 ? 'Yes ✓' : 'No ×'}
                 </span>
               </div>
 
-              <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '2px' }}>
-                <span className="font-mono text-[9px] uppercase text-neutral-400 block">High BP covered from Day 1</span>
+              <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '12px' }}>
+                <span className="font-mono text-[9px] uppercase text-[var(--ink-soft)] block">High BP covered from Day 1</span>
                 <span className="font-mono text-sm font-bold text-black uppercase">
                   {plan.hypertension_day1 ? 'Yes ✓' : 'No ×'}
                 </span>
               </div>
 
-              <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '2px' }}>
-                <span className="font-mono text-[9px] uppercase text-neutral-400 block">Partner Hospitals</span>
+              <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '12px' }}>
+                <span className="font-mono text-[9px] uppercase text-[var(--ink-soft)] block">Partner Hospitals</span>
                 <span className="font-mono text-sm font-bold text-black">
                   {(plan.hospital_network_count || 9800).toLocaleString('en-IN')}+ Cashless
                 </span>
@@ -247,8 +247,8 @@ export default function PlanDetailPage({ params }: PageProps) {
 
           {/* AI Recommendation Logic */}
           {plan.plain_english_explanation && (
-            <div className="border border-neutral-200 p-6 bg-neutral-50 space-y-2 animate-fadeIn" style={{ borderRadius: '2px' }}>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">AI Recommendation Logic</span>
+            <div className="border border-neutral-200 p-6 bg-neutral-50 space-y-2 animate-fadeIn" style={{ borderRadius: '12px' }}>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">AI Recommendation Logic</span>
               <p className="font-mono text-xs leading-6 text-neutral-800 italic">
                 "{plan.plain_english_explanation}"
               </p>
@@ -259,8 +259,8 @@ export default function PlanDetailPage({ params }: PageProps) {
           {plan.pros && plan.pros.length > 0 && (
             <div className="space-y-3 pt-2">
               <div>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">What is great about this plan</span>
-                <span className="font-mono text-[11px] text-neutral-400">Highlights based on your health numbers</span>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">What is great about this plan</span>
+                <span className="font-mono text-[11px] text-[var(--ink-soft)]">Highlights based on your health numbers</span>
               </div>
               <ul className="space-y-2 font-mono text-xs">
                 {plan.pros.map((pro: string, idx: number) => (
@@ -277,8 +277,8 @@ export default function PlanDetailPage({ params }: PageProps) {
           {plan.cons && plan.cons.length > 0 && (
             <div className="space-y-3 pt-2">
               <div>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">Things to keep in mind</span>
-                <span className="font-mono text-[11px] text-neutral-400">Important details to note</span>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Things to keep in mind</span>
+                <span className="font-mono text-[11px] text-[var(--ink-soft)]">Important details to note</span>
               </div>
               <ul className="space-y-2 font-mono text-xs">
                 {plan.cons.map((con: string, idx: number) => (
@@ -295,7 +295,7 @@ export default function PlanDetailPage({ params }: PageProps) {
           {plan.coverage_highlights && plan.coverage_highlights.length > 0 && (
             <div className="space-y-3 pt-2">
               <div>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">What is covered under this plan</span>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">What is covered under this plan</span>
               </div>
               <ul className="space-y-2 font-mono text-xs text-neutral-600 list-disc list-inside">
                 {plan.coverage_highlights.map((highlight: string, idx: number) => (
@@ -309,7 +309,7 @@ export default function PlanDetailPage({ params }: PageProps) {
           {plan.exclusions && plan.exclusions.length > 0 && (
             <div className="space-y-3 pt-2">
               <div>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block">What is NOT covered</span>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">What is NOT covered</span>
               </div>
               <ul className="space-y-2 font-mono text-xs text-neutral-600 list-disc list-inside">
                 {plan.exclusions.map((exclusion: string, idx: number) => (
@@ -320,23 +320,23 @@ export default function PlanDetailPage({ params }: PageProps) {
           )}
 
           {/* Quick Scenario Stress Test */}
-          <div className="border border-black p-6 space-y-4" style={{ borderRadius: '2px' }}>
+          <div className="border border-black p-6 space-y-4" style={{ borderRadius: '12px' }}>
             <div className="relative">
               <Crosshair className="-left-1.5 -top-1.5 text-black" />
               <Crosshair className="-bottom-1.5 -right-1.5 text-black" />
-              <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block mb-1">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block mb-1">
                 Emergency Bill Estimator
               </span>
               <h3 className="font-[var(--font-heading)] text-md font-bold text-black uppercase tracking-tight">
                 Emergency Cost Calculator
               </h3>
-              <p className="font-mono text-[11px] leading-5 text-neutral-500 mt-1">
+              <p className="font-mono text-[11px] leading-5 text-[var(--ink-mid)] mt-1">
                 See how much this policy pays for major surgeries or emergency hospital stays.
               </p>
               <button 
                 onClick={() => setIsStressOpen(true)}
                 className="mt-4 px-4 py-2 border border-black font-mono text-[10px] uppercase tracking-wider hover:bg-neutral-50 transition-colors"
-                style={{ borderRadius: '2px' }}
+                style={{ borderRadius: '12px' }}
               >
                 Estimate Emergency Bill
               </button>
@@ -349,7 +349,7 @@ export default function PlanDetailPage({ params }: PageProps) {
               <button
                 onClick={handleToggleSave}
                 className="flex-1 h-11 border border-black font-mono text-xs uppercase tracking-wider text-black hover:bg-neutral-50 transition-colors"
-                style={{ borderRadius: '2px' }}
+                style={{ borderRadius: '12px' }}
               >
                 {isSaved ? '✓ Saved' : 'Save Plan'}
               </button>
@@ -357,7 +357,7 @@ export default function PlanDetailPage({ params }: PageProps) {
               <button
                 onClick={handleToggleCompare}
                 className="flex-1 h-11 bg-black text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-wider transition-all"
-                style={{ borderRadius: '2px' }}
+                style={{ borderRadius: '12px' }}
               >
                 {isCompared ? '✓ Selected for Compare' : 'Add to Compare'}
               </button>
