@@ -126,6 +126,7 @@ class UserProfile(BaseModel):
     has_hypertension: Optional[bool] = None
     coverage_for: Optional[str] = 'Individual'
     family_members: Optional[int] = 1
+    medical_history: Optional[List[str]] = []
 
 class ExtractionRequest(BaseModel):
     raw_text: Optional[str] = None
