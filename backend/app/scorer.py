@@ -94,6 +94,56 @@ def suitability_score(plan, user):
             wait = plan.get("pre_existing_wait_years", 4)
             cond += (1.5 if wait <= 1 else (-1.0 if wait >= 3 else 0))
 
+        if any(k in dominant_lower for k in [
+            "spine", "disk", "bulge", "slip", "orthopedic", "arthritis",
+            "joint", "fracture", "knee", "hip", "back pain", "spondyl",
+        ]):
+            wait = plan.get("pre_existing_wait_years", 4)
+            if plan.get("type") in ("Comprehensive", "Standard", "Senior"):
+                cond += 2.5 if wait <= 2 else 0.75
+            elif plan.get("type") == "Basic":
+                cond -= 2.5
+            if plan.get("restoration_benefit"):
+                cond += 1.0
+
+        if any(k in dominant_lower for k in ["surgery", "appendix", "tonsillectomy", "hernia"]):
+            wait = plan.get("pre_existing_wait_years", 4)
+            cond += (1.5 if wait <= 1 else (-0.5 if wait >= 3 else 0.5))
+
+    # Secondary pass: all Stage-0 events (not only dominant) for multi-condition profiles
+    for event in user.get("condition_events") or []:
+        name = (event.get("name") if isinstance(event, dict) else str(event)).lower()
+        weight = float(event.get("weight", 0.35) if isinstance(event, dict) else 0.35)
+        wait = plan.get("pre_existing_wait_years", 4)
+        if any(k in name for k in ["heart", "cardiac", "stroke"]):
+            if plan.get("critical_illness_cover") or plan.get("type") == "Critical Illness":
+                cond += min(2.5, weight * 2.5)
+            elif plan.get("type") == "Basic":
+                cond -= min(2.0, weight * 2.0)
+        elif any(k in name for k in ["cancer", "tumor", "oncol"]):
+            if plan.get("cancer_cover") or plan.get("type") == "Critical Illness":
+                cond += min(2.5, weight * 2.5)
+        elif any(k in name for k in ["spine", "disk", "bulge", "arthritis", "joint", "fracture"]):
+            if plan.get("type") in ("Comprehensive", "Standard"):
+                cond += min(2.0, weight * 2.0) if wait <= 2 else 0.5
+            elif plan.get("type") == "Basic":
+                cond -= min(1.5, weight * 1.5)
+        elif any(k in name for k in ["kidney", "renal", "ckd"]):
+            cond += min(2.0, weight * 2.0) if wait <= 1 else (-1.5 if wait >= 3 else 0)
+
+    # Stage-0 aggregate severity (0–5) — separates low vs moderate profiles
+    crs = float(user.get("condition_risk_score", 0) or 0)
+    if crs >= 1.5:
+        if plan.get("type") in ("Comprehensive", "Senior", "Critical Illness"):
+            cond += 1.5
+        if plan.get("type") == "Basic":
+            cond -= 2.0
+    elif crs >= 0.75:
+        if plan.get("type") == "Basic":
+            cond -= 1.25
+        elif plan.get("type") in ("Comprehensive", "Standard"):
+            cond += 0.75
+
     scores['condition_match'] = max(0.0, min(10.0, cond))
 
     # ── RISK TIER ALIGNMENT (20%) ──

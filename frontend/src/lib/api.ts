@@ -97,6 +97,28 @@ export async function chatWithAdvisor(
   return await response.json();
 }
 
+/** Stage 0: score medical terms via condition_scorer (cache + Gemma). */
+export async function scoreConditions(medicalHistory: string[]) {
+  const response = await fetch(`${BACKEND_URL}/score-conditions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ medical_history: medicalHistory }),
+  });
+  if (!response.ok) throw new Error('Condition scoring failed');
+  return await response.json();
+}
+
+/** NER extract → Stage 0 score (ML_Details pipeline). */
+export async function parseConditionsFromText(text: string) {
+  const response = await fetch(`${BACKEND_URL}/parse-conditions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  if (!response.ok) throw new Error('Condition parsing failed');
+  return await response.json();
+}
+
 export async function processLabReport(rawText: string) {
   const result = await extractHealthMetrics(rawText);
   const extracted = result.extracted_result;

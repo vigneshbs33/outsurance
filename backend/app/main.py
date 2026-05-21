@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import jwt
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict, AliasChoices
 from typing import List, Optional, Dict, Any
 
 load_dotenv()
@@ -111,6 +111,8 @@ def verify_jwt(request: Request) -> Optional[dict]:
 
 # ─── Pydantic Models ──────────────────────────────────────────────────────────
 class UserProfile(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     age: int
     bmi: float
     smoker: int
@@ -126,7 +128,21 @@ class UserProfile(BaseModel):
     has_hypertension: Optional[bool] = None
     coverage_for: Optional[str] = 'Individual'
     family_members: Optional[int] = 1
-    medical_history: Optional[List[str]] = []
+    medical_history: Optional[List[str]] = Field(
+        default=[],
+        validation_alias=AliasChoices('medical_history', 'medicalHistory'),
+    )
+
+class ScoreConditionsRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    medical_history: List[str] = Field(
+        default=[],
+        validation_alias=AliasChoices('medical_history', 'medicalHistory'),
+    )
+
+class ParseConditionsRequest(BaseModel):
+    text: str
 
 class ExtractionRequest(BaseModel):
     raw_text: Optional[str] = None
@@ -279,6 +295,7 @@ def assess_user(profile: UserProfile, request: Request):
         user_dict['condition_risk_score'] = condition_detail['normalized_for_xgboost']
         user_dict['dominant_condition']   = condition_detail['dominant_condition']
         user_dict['condition_detail']     = condition_detail
+        user_dict['condition_events']     = condition_detail.get('events') or []
     else:
         user_dict['condition_risk_score'] = round(min(5.0, profile.chronic_count * 0.60), 4)
         user_dict['dominant_condition']   = ""
@@ -445,6 +462,49 @@ def predict_scenario_details(req: PredictScenarioRequest):
         return {"cost": cost, "days": days, "isChronic": is_chronic}
 
 
+@app.post("/api/score-conditions")
+def score_conditions_endpoint(req: ScoreConditionsRequest):
+    """
+    Stage 0 only: score a list of medical terms via condition_scorer (cache + Gemma).
+    Used by the assessment UI for previews before full /api/assess.
+    """
+    from .condition_scorer import score_conditions
+
+    terms = [t.strip() for t in (req.medical_history or []) if t and t.strip()]
+    if not terms:
+        return {
+            "condition_detail": {
+                "events": [],
+                "total_condition_risk_score": 0.0,
+                "normalized_for_xgboost": 0.0,
+                "dominant_condition": None,
+                "risk_summary": "No conditions reported.",
+            }
+        }
+    detail = score_conditions(terms, generate_text)
+    return {"condition_detail": detail, "medical_history": terms}
+
+
+@app.post("/api/parse-conditions")
+def parse_conditions_endpoint(req: ParseConditionsRequest):
+    """
+    ML flow: NER extract (agent.py) → Stage 0 score (condition_scorer.py).
+    """
+    from .agent import _extract_medical_terms
+    from .condition_scorer import score_conditions
+
+    text = (req.text or "").strip()
+    if not text:
+        return {"extracted_terms": [], "condition_detail": None}
+
+    terms = _extract_medical_terms(text, generate_text)
+    if not terms:
+        return {"extracted_terms": [], "condition_detail": None}
+
+    detail = score_conditions(terms, generate_text)
+    return {"extracted_terms": terms, "condition_detail": detail}
+
+
 @app.post("/api/extract")
 def extract_health_metrics(req: ExtractionRequest):
     """
@@ -472,22 +532,48 @@ def extract_health_metrics(req: ExtractionRequest):
 @app.post("/api/chat")
 def chat_agent(req: ChatRequest):
     """
-    Continuous agent chat. Knows the user's vitals and chat history.
+    Health advisor chat. Parses new conditions (NER → Stage 0) when present.
     """
+    from .agent import _extract_medical_terms
+    from .condition_scorer import score_conditions
+
+    latest = req.messages[-1].content if req.messages else ""
+    existing_history = list(req.user_vitals.get("medical_history") or [])
+
+    extracted_terms: List[str] = []
+    condition_detail = None
+    if latest.strip():
+        extracted_terms = _extract_medical_terms(latest, generate_text)
+        if extracted_terms:
+            merged = list(dict.fromkeys(existing_history + extracted_terms))
+            condition_detail = score_conditions(merged, generate_text)
+
     sys_prompt = (
         "You are Outsurance's AI health advisor. You help users understand their insurance "
         "recommendations, answer questions about their health risk, and explain plan features. "
         "Be brief (2-3 sentences), warm, and jargon-free. "
-        "If the user describes a new condition, acknowledge it and suggest they re-run the assessment."
+        "If the user describes a new condition, acknowledge it and explain how it may affect premiums."
     )
     history = "\n".join(
         f"{m.role.capitalize()}: {m.content}" for m in req.messages[:-1]
     )
-    latest = req.messages[-1].content
+    cond_ctx = ""
+    if condition_detail and condition_detail.get("events"):
+        ev = condition_detail["events"]
+        cond_ctx = (
+            f"\nParsed conditions (Stage 0): {', '.join(e['name'] for e in ev)}. "
+            f"Risk summary: {condition_detail.get('risk_summary', '')}. "
+            f"Severity score: {condition_detail.get('normalized_for_xgboost', 0):.2f}/5.0."
+        )
     user_prompt = (
         f"User vitals: {req.user_vitals}\n"
+        f"{cond_ctx}\n"
         f"Chat history:\n{history}\n"
         f"User: {latest}\nAdvisor:"
     )
     result = generate_text(sys_prompt, user_prompt, max_tokens=150)
-    return {"response": result}
+    return {
+        "response": result,
+        "extracted_terms": extracted_terms,
+        "condition_detail": condition_detail,
+    }

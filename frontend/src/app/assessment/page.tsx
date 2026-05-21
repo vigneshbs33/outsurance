@@ -2,12 +2,44 @@
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { assessHealthProfile, chatWithAdvisor, processLabReport } from '../../lib/api';
+import { assessHealthProfile, chatWithAdvisor, parseConditionsFromText, processLabReport, scoreConditions } from '../../lib/api';
+import {
+  buildMemberConditionTerms,
+  buildUnionMedicalHistory,
+  conditionSeverityClass,
+  type ConditionDetail,
+} from '../../lib/medicalHistory';
 import { saveAssessmentResult, supabase } from '../../lib/supabase';
 import { AnnotationBox, FormField } from '../../components/editorial';
-import { Lock, FileText, ArrowRight, ShieldCheck, Check, Plus, Minus, Info, Sparkles, ChevronRight, ChevronDown } from 'lucide-react';
+import { Lock, FileText, ArrowRight, ShieldCheck, Check, Plus, Minus, Info, Sparkles, ChevronRight, ChevronDown, X } from 'lucide-react';
 import { HealthCondition, IntakeLanguage, InsuredMember } from '../../enums/assessment.enum';
 import { LANGUAGES, MEMBER_CARDS, ILLNESSES, POPULAR_CITIES, MemberCardItem } from '../../data/assessment.data';
+
+function ConditionPreview({ detail, compact }: { detail: ConditionDetail; compact?: boolean }) {
+  if (!detail.events?.length) return null;
+  return (
+    <div className={`border border-neutral-200 bg-neutral-50 ${compact ? 'p-3' : 'p-4'} space-y-2`}>
+      <p className="font-mono text-[9px] uppercase text-neutral-500 tracking-wider">Stage 0 — Condition risk score</p>
+      <p className="font-mono text-[10px] text-neutral-600 leading-snug">{detail.risk_summary}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {detail.events.map((ev) => (
+          <span
+            key={ev.name}
+            className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${conditionSeverityClass(ev.weight)}`}
+          >
+            {ev.name} ({ev.weight.toFixed(2)})
+          </span>
+        ))}
+      </div>
+      <div className="flex justify-between font-mono text-[9px] text-neutral-500 pt-1 border-t border-neutral-200">
+        <span>Total severity</span>
+        <span className="font-bold text-neutral-700">
+          {detail.total_condition_risk_score.toFixed(2)} → XGBoost {detail.normalized_for_xgboost.toFixed(2)}/5
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function AssessmentPage() {
   const router = useRouter();
@@ -49,6 +81,12 @@ export default function AssessmentPage() {
   const [showCityDropdown, setShowCityDropdown] = useState(false);
 
   const [memberMedicalHistory, setMemberMedicalHistory] = useState<Record<string, Record<HealthCondition, boolean>>>({});
+  const [memberOtherConditions, setMemberOtherConditions] = useState<Record<string, string[]>>({});
+  const [memberOtherDraft, setMemberOtherDraft] = useState<Record<string, string>>({});
+  const [memberConditionPreview, setMemberConditionPreview] = useState<Record<string, ConditionDetail | null>>({});
+  const [advisorExtraConditions, setAdvisorExtraConditions] = useState<string[]>([]);
+  const [advisorConditionPreview, setAdvisorConditionPreview] = useState<ConditionDetail | null>(null);
+  const [scoringMember, setScoringMember] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadState, setUploadState] = useState<'idle' | 'processing' | 'done'>('idle');
@@ -306,32 +344,28 @@ export default function AssessmentPage() {
       });
     }, 1800);
 
-    const hasDiabetesVal = activeMembersList.some((m) => {
-      const history = memberMedicalHistory[m];
-      return history?.[HealthCondition.DIABETES] ?? false;
-    });
+    const unionMedicalHistory = buildUnionMedicalHistory(
+      activeMembersList,
+      memberMedicalHistory,
+      memberOtherConditions,
+      advisorExtraConditions
+    );
 
-    const hasHypertensionVal = activeMembersList.some((m) => {
-      const history = memberMedicalHistory[m];
-      return history?.[HealthCondition.BLOOD_PRESSURE] ?? false;
-    });
+    const hasDiabetesVal = unionMedicalHistory.some((t) => t.toLowerCase().includes('diabet'));
+    const hasHypertensionVal = unionMedicalHistory.some(
+      (t) => t.toLowerCase().includes('hypert') || t.toLowerCase().includes('blood pressure')
+    );
 
     let chronicCountVal = 0;
     activeMembersList.forEach((m) => {
-      const history = memberMedicalHistory[m];
-      if (history) {
-        Object.keys(history).forEach((key) => {
-          const cond = key as HealthCondition;
-          if (history[cond] && cond !== HealthCondition.NONE && cond !== HealthCondition.DIABETES && cond !== HealthCondition.BLOOD_PRESSURE) {
-            chronicCountVal++;
-          }
-        });
-      }
+      const terms = buildMemberConditionTerms(memberMedicalHistory[m], memberOtherConditions[m] ?? []);
+      chronicCountVal += terms.filter(
+        (t) => !t.includes('diabet') && !t.includes('hypert') && !t.includes('blood pressure')
+      ).length;
     });
-
-    const unionMedicalHistory: string[] = [];
-    if (hasDiabetesVal) unionMedicalHistory.push('Diabetes');
-    if (hasHypertensionVal) unionMedicalHistory.push('Blood Pressure');
+    chronicCountVal += advisorExtraConditions.filter(
+      (t) => !t.includes('diabet') && !t.includes('hypert')
+    ).length;
 
     const serializedDOBs: Record<string, string> = {};
     activeMembersList.forEach((m) => {
@@ -381,7 +415,9 @@ export default function AssessmentPage() {
       gender,
       coveredMembersList: activeMembersList,
       memberAges,
-      medicalHistory: unionMedicalHistory,
+      medical_history: unionMedicalHistory,
+      has_diabetes: hasDiabetesVal,
+      has_hypertension: hasHypertensionVal,
       height: parseFloat(height) || 0,
       weight: parseFloat(weight) || 0,
       groups: activeMembersList.length > 1 ? groups : [{ id: 'group_1', name: 'Primary Group', members: ['Self'] }],
@@ -406,7 +442,7 @@ export default function AssessmentPage() {
       });
 
     return () => clearInterval(interval);
-  }, [step, activeMembersList, budget, calculatedBMI, bp, groups, hba1c, height, income, language, gender, memberAges, memberMedicalHistory, memberDOBs, mobileNumber, fullName, primaryAge, router, smoker, userId, weight, city, memberUploads]);
+  }, [step, activeMembersList, budget, calculatedBMI, bp, groups, hba1c, height, income, language, gender, memberAges, memberMedicalHistory, memberOtherConditions, advisorExtraConditions, memberDOBs, mobileNumber, fullName, primaryAge, router, smoker, userId, weight, city, memberUploads]);
 
   function formatCommas(value: string) {
     const clean = value.replace(/\D/g, '');
@@ -421,19 +457,122 @@ export default function AssessmentPage() {
     setChatInput('');
     setIsTyping(true);
 
+    const unionHistory = buildUnionMedicalHistory(
+      activeMembersList,
+      memberMedicalHistory,
+      memberOtherConditions,
+      advisorExtraConditions
+    );
+
     try {
       const result = await chatWithAdvisor(
         [...chatMessages, { sender: 'user', text: userText }].map((m) => ({
           role: m.sender === 'ai' ? 'assistant' : 'user',
           content: m.text,
         })),
-        { hba1c: parseFloat(hba1c), bp_systolic: parseInt(bp, 10), bmi: parseFloat(calculatedBMI) }
+        {
+          hba1c: parseFloat(hba1c),
+          bp_systolic: parseInt(bp, 10),
+          bmi: parseFloat(calculatedBMI),
+          medical_history: unionHistory,
+        }
       );
-      setChatMessages((prev) => [...prev, { sender: 'ai', text: result.response }]);
+
+      let reply = result.response as string;
+      const extracted = (result.extracted_terms as string[] | undefined) ?? [];
+      const detail = result.condition_detail as ConditionDetail | null | undefined;
+
+      if (extracted.length > 0) {
+        setAdvisorExtraConditions((prev) => {
+          const seen = new Set(prev.map((t) => t.toLowerCase()));
+          const merged = [...prev];
+          extracted.forEach((t) => {
+            if (!seen.has(t.toLowerCase())) {
+              seen.add(t.toLowerCase());
+              merged.push(t);
+            }
+          });
+          return merged;
+        });
+        if (detail) setAdvisorConditionPreview(detail);
+        reply += `\n\nDetected conditions: ${extracted.join(', ')}. Severity score ${detail?.normalized_for_xgboost?.toFixed(2) ?? '—'}/5.0 — included in your final assessment.`;
+      }
+
+      setChatMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
     } catch {
-      setChatMessages((prev) => [...prev, { sender: 'ai', text: 'Vitals verified. Ready to compute policy matches.' }]);
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: 'ai', text: 'Advisor unavailable. Your checklist selections will still be scored at assessment time.' },
+      ]);
     }
     setIsTyping(false);
+  }
+
+  function addOtherCondition(member: string) {
+    const draft = (memberOtherDraft[member] ?? '').trim();
+    if (!draft) return;
+    setMemberOtherConditions((prev) => ({
+      ...prev,
+      [member]: [...(prev[member] ?? []), draft],
+    }));
+    setMemberOtherDraft((prev) => ({ ...prev, [member]: '' }));
+    setMemberConditionPreview((prev) => ({ ...prev, [member]: null }));
+  }
+
+  function removeOtherCondition(member: string, index: number) {
+    setMemberOtherConditions((prev) => ({
+      ...prev,
+      [member]: (prev[member] ?? []).filter((_, i) => i !== index),
+    }));
+    setMemberConditionPreview((prev) => ({ ...prev, [member]: null }));
+  }
+
+  async function handleScoreMemberConditions(member: string) {
+    const terms = buildMemberConditionTerms(memberMedicalHistory[member], memberOtherConditions[member] ?? []);
+    if (!terms.length) return;
+    setScoringMember(member);
+    try {
+      const result = await scoreConditions(terms);
+      setMemberConditionPreview((prev) => ({
+        ...prev,
+        [member]: result.condition_detail as ConditionDetail,
+      }));
+    } catch {
+      setMemberConditionPreview((prev) => ({ ...prev, [member]: null }));
+    }
+    setScoringMember(null);
+  }
+
+  async function handleParseOtherDraft(member: string) {
+    const draft = (memberOtherDraft[member] ?? '').trim();
+    if (!draft) return;
+    setScoringMember(member);
+    try {
+      const result = await parseConditionsFromText(draft);
+      const extracted = (result.extracted_terms as string[] | undefined) ?? [];
+      if (extracted.length) {
+        setMemberOtherConditions((prev) => ({
+          ...prev,
+          [member]: [...(prev[member] ?? []), ...extracted.filter((t: string) => !(prev[member] ?? []).includes(t))],
+        }));
+        setMemberOtherDraft((prev) => ({ ...prev, [member]: '' }));
+        if (memberMedicalHistory[member]) {
+          setMemberMedicalHistory((prev) => ({
+            ...prev,
+            [member]: { ...prev[member], [HealthCondition.OTHER_DISEASE]: true, [HealthCondition.NONE]: false },
+          }));
+        }
+      }
+      if (result.condition_detail) {
+        setMemberConditionPreview((prev) => ({
+          ...prev,
+          [member]: result.condition_detail as ConditionDetail,
+        }));
+      }
+    } catch {
+      addOtherCondition(member);
+    }
+    setScoringMember(null);
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -584,22 +723,29 @@ export default function AssessmentPage() {
   }
 
   function handleMedicalToggle(m: string, cond: HealthCondition) {
-    setMemberMedicalHistory((prev) => {
-      const current = prev[m] ?? {} as Record<HealthCondition, boolean>;
-      const next = { ...current };
+    const current = memberMedicalHistory[m] ?? ({} as Record<HealthCondition, boolean>);
+    const next = { ...current };
 
-      if (cond === HealthCondition.NONE) {
-        Object.keys(HealthCondition).forEach((key) => {
-          const item = HealthCondition[key as keyof typeof HealthCondition];
-          next[item] = false;
-        });
-        next[HealthCondition.NONE] = !current[HealthCondition.NONE];
-      } else {
-        next[HealthCondition.NONE] = false;
-        next[cond] = !current[cond];
+    if (cond === HealthCondition.NONE) {
+      Object.keys(HealthCondition).forEach((key) => {
+        const item = HealthCondition[key as keyof typeof HealthCondition];
+        next[item] = false;
+      });
+      next[HealthCondition.NONE] = !current[HealthCondition.NONE];
+      if (next[HealthCondition.NONE]) {
+        setMemberOtherConditions((o) => ({ ...o, [m]: [] }));
+        setMemberOtherDraft((o) => ({ ...o, [m]: '' }));
       }
-      return { ...prev, [m]: next };
-    });
+    } else {
+      next[HealthCondition.NONE] = false;
+      next[cond] = !current[cond];
+      if (cond === HealthCondition.OTHER_DISEASE && !next[cond]) {
+        setMemberOtherConditions((o) => ({ ...o, [m]: [] }));
+        setMemberOtherDraft((o) => ({ ...o, [m]: '' }));
+      }
+    }
+    setMemberConditionPreview((p) => ({ ...p, [m]: null }));
+    setMemberMedicalHistory((prev) => ({ ...prev, [m]: next }));
   }
 
   function handleGroupMemberToggle(m: string, groupId: 'group_1' | 'group_2') {
@@ -1033,37 +1179,116 @@ export default function AssessmentPage() {
             {step === 5 && (
               <div className="space-y-6 animate-fadeIn">
                 <AnnotationBox title="Medical Background Checklist">
-                  Select diagnoses per insured family member.
+                  Select diagnoses per insured family member. For &quot;Other disease&quot;, type the condition or use AI parse (Stage 0 → condition_risk_score).
                 </AnnotationBox>
 
                 <div className="space-y-6">
-                  {activeMembersList.map((m) => (
-                    <div key={m} className="border border-neutral-200 p-6 space-y-4">
-                      <div className="font-mono text-xs uppercase tracking-wider font-bold text-black border-b border-neutral-100 pb-2">
-                        {m} Health History
-                      </div>
+                  {activeMembersList.map((m) => {
+                    const showOther = memberMedicalHistory[m]?.[HealthCondition.OTHER_DISEASE] ?? false;
+                    const others = memberOtherConditions[m] ?? [];
+                    const preview = memberConditionPreview[m];
+                    const isScoring = scoringMember === m;
 
-                      <div className="grid grid-cols-2 gap-3">
-                        {ILLNESSES.map((ill) => {
-                          const isActive = memberMedicalHistory[m]?.[ill.id] ?? false;
-                          return (
-                            <button
-                              key={ill.id}
-                              onClick={() => handleMedicalToggle(m, ill.id)}
-                              className={`p-3 border font-mono text-[10px] uppercase text-left flex justify-between items-center transition-colors ${
-                                isActive
-                                  ? 'border-black bg-neutral-50 text-black font-bold'
-                                  : 'border-neutral-200 text-neutral-500 hover:border-black hover:text-black'
-                              }`}
-                            >
-                              <span>{ill.label}</span>
-                              {isActive && <Check size={12} className="text-black" />}
-                            </button>
-                          );
-                        })}
+                    return (
+                      <div key={m} className="border border-neutral-200 p-6 space-y-4">
+                        <div className="flex justify-between items-center border-b border-neutral-100 pb-2">
+                          <span className="font-mono text-xs uppercase tracking-wider font-bold text-black">
+                            {m} Health History
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleScoreMemberConditions(m)}
+                            disabled={isScoring || !buildMemberConditionTerms(memberMedicalHistory[m], others).length}
+                            className="font-mono text-[9px] uppercase px-2 py-1 border border-neutral-300 hover:border-black disabled:opacity-40"
+                          >
+                            {isScoring ? 'Scoring…' : 'Score conditions'}
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          {ILLNESSES.map((ill) => {
+                            const isActive = memberMedicalHistory[m]?.[ill.id] ?? false;
+                            return (
+                              <button
+                                key={ill.id}
+                                type="button"
+                                onClick={() => handleMedicalToggle(m, ill.id)}
+                                className={`p-3 border font-mono text-[10px] uppercase text-left flex justify-between items-center transition-colors ${
+                                  isActive
+                                    ? 'border-black bg-neutral-50 text-black font-bold'
+                                    : 'border-neutral-200 text-neutral-500 hover:border-black hover:text-black'
+                                }`}
+                              >
+                                <span>{ill.label}</span>
+                                {isActive && <Check size={12} className="text-black" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {showOther && (
+                          <div className="space-y-3 border border-dashed border-neutral-300 p-4 bg-white">
+                            <span className="font-mono text-[9px] uppercase text-neutral-500 block">
+                              Other conditions (free text)
+                            </span>
+                            <div className="flex gap-2">
+                              <input
+                                className="flex-1 px-3 py-2 border border-neutral-200 font-mono text-xs outline-none focus:border-black"
+                                placeholder="e.g. kidney stones, COPD, knee replacement…"
+                                value={memberOtherDraft[m] ?? ''}
+                                onChange={(e) =>
+                                  setMemberOtherDraft((prev) => ({ ...prev, [m]: e.target.value }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleParseOtherDraft(m);
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => addOtherCondition(m)}
+                                className="px-3 py-2 border border-black font-mono text-[9px] uppercase hover:bg-black hover:text-white"
+                              >
+                                Add
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleParseOtherDraft(m)}
+                                disabled={isScoring || !(memberOtherDraft[m] ?? '').trim()}
+                                className="px-3 py-2 border border-neutral-300 font-mono text-[9px] uppercase flex items-center gap-1 hover:border-black disabled:opacity-40"
+                              >
+                                <Sparkles size={10} />
+                                AI parse
+                              </button>
+                            </div>
+                            {others.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {others.map((c, idx) => (
+                                  <span
+                                    key={`${c}-${idx}`}
+                                    className="inline-flex items-center gap-1 font-mono text-[9px] uppercase bg-neutral-100 border border-neutral-200 px-2 py-1"
+                                  >
+                                    {c}
+                                    <button
+                                      type="button"
+                                      onClick={() => removeOtherCondition(m, idx)}
+                                      className="text-neutral-400 hover:text-black"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {preview && <ConditionPreview detail={preview} compact />}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1328,9 +1553,23 @@ export default function AssessmentPage() {
                     </span>
                   </div>
                   <p className="font-mono text-[11px] leading-5 text-neutral-500">
-                    Gemma 3 1B is listening in sandboxed advisor mode.
+                    Describe conditions in plain language — Gemma extracts terms (NER) and runs Stage 0 scoring before your final assessment.
                   </p>
                 </div>
+
+                {advisorExtraConditions.length > 0 && (
+                  <div className="border border-neutral-200 p-4 space-y-2">
+                    <span className="font-mono text-[9px] uppercase text-neutral-500">Conditions from advisor chat</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {advisorExtraConditions.map((c) => (
+                        <span key={c} className="font-mono text-[9px] uppercase bg-black text-white px-2 py-0.5">
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                    {advisorConditionPreview && <ConditionPreview detail={advisorConditionPreview} compact />}
+                  </div>
+                )}
 
                 <div className="border border-neutral-200 bg-white">
                   <div className="h-[280px] space-y-4 overflow-y-auto p-6 font-mono text-xs leading-6 text-neutral-600 border-b border-neutral-100">
@@ -1361,7 +1600,7 @@ export default function AssessmentPage() {
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => (e.key === 'Enter' ? handleSendChat() : null)}
-                      placeholder="Consult advisor on vital thresholds..."
+                      placeholder="e.g. Father had a heart bypass in 2019, I have mild asthma…"
                     />
                     <button
                       onClick={handleSendChat}

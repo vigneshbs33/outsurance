@@ -508,6 +508,7 @@ function DashboardContent() {
   const [riskScore, setRiskScore] = useState<number>(0);
   const [conditionDetail, setConditionDetail] = useState<ConditionDetail | null>(null);
   const [featureImportance, setFeatureImportance] = useState<FeatureImportance | null>(null);
+  const [assessedAt, setAssessedAt] = useState<string | null>(null);
   const [selectedPlanForStress, setSelectedPlanForStress] = useState<Plan | null>(null);
   const [stressTestInitialScenario, setStressTestInitialScenario] = useState<{ id: string; name?: string; cost?: number; days?: number; isChronic?: boolean } | undefined>();
   const [isCompareDrawerOpen, setIsCompareDrawerOpen] = useState(false);
@@ -585,6 +586,7 @@ function DashboardContent() {
         if (recommendation) {
           setRiskTier(recommendation.risk_tier ?? '');
           setRiskScore(recommendation.risk_score ?? 0);
+          setAssessedAt((recommendation.created_at as string) ?? null);
           const firstPlan = recommendation.top_plan_ids?.[0];
           if (firstPlan?.condition_detail) setConditionDetail(firstPlan.condition_detail as ConditionDetail);
           if (firstPlan?.feature_importance_explanation) setFeatureImportance(firstPlan.feature_importance_explanation as FeatureImportance);
@@ -982,11 +984,26 @@ function DashboardContent() {
           )}
 
           {/* AI banner */}
-          <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 flex items-center gap-2">
-            <Sparkles size={13} className="text-amber-600 shrink-0" />
-            <p className="text-xs text-amber-800 font-medium">
-              Outsurance AI · Plans ranked by your health profile · <span className="font-bold">{filteredPlans.length} plans found</span>
-            </p>
+          <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles size={13} className="text-amber-600 shrink-0" />
+              <p className="text-xs text-amber-800 font-medium">
+                Outsurance AI · Top 5 from Stages 0–3 (XGBoost + suitability + KNN) ·{' '}
+                <span className="font-bold">{filteredPlans.length} plans in explorer</span>
+                {assessedAt && (
+                  <span className="block text-[10px] text-amber-700/90 mt-0.5 font-normal">
+                    Last assessment: {new Date(assessedAt).toLocaleString()} — change health inputs and complete a new assessment to refresh rankings.
+                  </span>
+                )}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push('/assessment')}
+              className="shrink-0 font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-amber-300 bg-white hover:bg-amber-100 text-amber-900"
+            >
+              Re-run assessment
+            </button>
           </div>
 
           {groupedByInsurer.length === 0 ? (
