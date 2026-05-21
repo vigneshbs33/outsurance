@@ -58,18 +58,18 @@ function SavedContent() {
             </div>
           ) : (
             <div className="space-y-4">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block mb-6">My Shortlisted Plans</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block mb-6">My Shortlisted Plans</span>
               <div className="grid gap-6 md:grid-cols-2">
                 {savedPlans.map((plan, index) => (
                   <div 
                     key={String(plan.id)} 
                     className="border border-neutral-200 p-6 bg-white hover:border-black transition-all flex flex-col justify-between"
-                    style={{ borderRadius: '2px' }}
+                    style={{ borderRadius: '12px' }}
                   >
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-[9px] bg-neutral-100 px-2 py-0.5" style={{ borderRadius: '2px' }}>0{index + 1}</span>
-                        <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400">
+                        <span className="font-mono text-[9px] bg-neutral-100 px-2 py-0.5" style={{ borderRadius: '12px' }}>0{index + 1}</span>
+                        <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)]">
                           {String(plan.insurer || plan.provider || 'Star Health')}
                         </span>
                       </div>
@@ -77,15 +77,15 @@ function SavedContent() {
                         {String(plan.name)}
                       </h3>
                       <div className="space-y-2 border-t border-neutral-100 pt-3">
-                        <div className="flex justify-between font-mono text-[11px] text-neutral-500">
+                        <div className="flex justify-between font-mono text-[11px] text-[var(--ink-mid)]">
                           <span>Premium:</span>
                           <span className="text-black font-semibold">₹{Number(plan.annual_premium || 0).toLocaleString('en-IN')}/yr</span>
                         </div>
-                        <div className="flex justify-between font-mono text-[11px] text-neutral-500">
+                        <div className="flex justify-between font-mono text-[11px] text-[var(--ink-mid)]">
                           <span>Coverage:</span>
                           <span className="text-black font-semibold">₹{Number(plan.coverage || 0).toLocaleString('en-IN')}</span>
                         </div>
-                        <div className="flex justify-between font-mono text-[11px] text-neutral-500">
+                        <div className="flex justify-between font-mono text-[11px] text-[var(--ink-mid)]">
                           <span>Wait for Health Conditions:</span>
                           <span className="text-black font-semibold uppercase">
                             {plan.diabetes_day1 ? 'None (Day-1)' : `${plan.pre_existing_wait_years || plan.preexisting_wait_years || 0} Years`}
@@ -100,7 +100,7 @@ function SavedContent() {
                       </div>
                       <button 
                         onClick={() => removePlan(plan.id as number)} 
-                        className="font-mono text-[10px] uppercase text-neutral-400 hover:text-black transition-colors underline"
+                        className="font-mono text-[10px] uppercase text-[var(--ink-soft)] hover:text-black transition-colors underline"
                       >
                         Remove
                       </button>

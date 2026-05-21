@@ -10,8 +10,8 @@ import { Lock, FileText, Camera, ArrowRight, ShieldCheck } from 'lucide-react';
 const steps = ['About You', 'Health Profile', 'Upload Report', 'Confirm Details', 'Finding Matches'];
 
 const CITIES = [
-  'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Ahmedabad', 'Chennai', 
-  'Kolkata', 'Surat', 'Pune', 'Jaipur', 'Lucknow', 'Kanpur', 
+  'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Ahmedabad', 'Chennai',
+  'Kolkata', 'Surat', 'Pune', 'Jaipur', 'Lucknow', 'Kanpur',
   'Nagpur', 'Indore', 'Thane', 'Bhopal', 'Visakhapatnam', 'Patna'
 ];
 
@@ -226,7 +226,7 @@ export default function AssessmentPage() {
   return (
     <main className="min-h-screen bg-white px-4 sm:px-8 py-8 lg:px-12">
       <div className="mx-auto max-w-[1100px]">
-        
+
         {/* Step Header */}
         <header className="mb-12 flex flex-col gap-4 border-b border-neutral-200 pb-8 md:flex-row md:items-end md:justify-between">
           <div>
@@ -235,12 +235,12 @@ export default function AssessmentPage() {
               {steps[step - 1]}
             </h1>
           </div>
-          
+
           {/* Progress Bar */}
           <div className="w-full md:max-w-[280px]">
             <div className="h-[2px] w-full bg-neutral-100">
-              <div 
-                className="h-[2px] bg-black transition-all duration-500 ease-out" 
+              <div
+                className="h-[2px] bg-black transition-all duration-500 ease-out"
                 style={{ width: `${(step / 5) * 100}%` }}
               />
             </div>
@@ -253,14 +253,14 @@ export default function AssessmentPage() {
 
         <section className="grid gap-12 lg:grid-cols-[1.5fr_1fr]">
           <div className="space-y-8">
-            
+
             {/* Step 1: Personal Details */}
             {step === 1 ? (
               <div className="space-y-8 animate-fadeIn">
                 <AnnotationBox title="Why we ask this">
                   Let's start with a few basic details. We use this to calculate standard parameters like your age and budget entirely privately on your device.
                 </AnnotationBox>
-                
+
                 <div className="grid gap-6">
                   <FormField label="My Full Name">
                     <input className="field-input font-mono" placeholder="e.g. Rahul Sharma" value={fullName} onChange={(e) => setFullName(e.target.value)} />
@@ -275,7 +275,7 @@ export default function AssessmentPage() {
                         <input className="field-input font-mono text-center" placeholder="YYYY" value={dobYYYY} onChange={(e) => setDobYYYY(e.target.value)} maxLength={4} />
                       </div>
                     </div>
-                    
+
                     <div className="space-y-1 flex flex-col justify-end">
                       <span className="field-label">Your Age</span>
                       <div className="field-input font-mono bg-neutral-50 flex items-center justify-center font-bold">
@@ -286,19 +286,19 @@ export default function AssessmentPage() {
 
                   <div className="relative">
                     <FormField label="Current City">
-                      <input 
-                        className="field-input font-mono" 
-                        placeholder="Type to search your city..." 
-                        value={citySearch || city} 
+                      <input
+                        className="field-input font-mono"
+                        placeholder="Type to search your city..."
+                        value={citySearch || city}
                         onChange={(e) => {
                           setCitySearch(e.target.value);
                           setCity('');
                           setShowCityDropdown(true);
-                        }} 
+                        }}
                         onFocus={() => setShowCityDropdown(true)}
                       />
                     </FormField>
-                    
+
                     {showCityDropdown && filteredCities.length > 0 && (
                       <div className="absolute left-0 right-0 z-50 mt-1 border border-neutral-200 bg-white shadow-lg font-mono text-xs">
                         {filteredCities.map((c) => (
@@ -326,7 +326,7 @@ export default function AssessmentPage() {
                         <input className="field-input font-mono pl-7" placeholder="e.g. 8,00,000" value={income} onChange={(e) => setIncome(formatCommas(e.target.value))} />
                       </div>
                     </FormField>
-                    
+
                     <FormField label="Ideal Monthly Premium Budget (₹)">
                       <div className="relative flex items-center">
                         <span className="absolute left-3 font-mono text-neutral-400 text-xs">₹</span>
@@ -353,10 +353,9 @@ export default function AssessmentPage() {
                             onClick={() => setGender(value)}
                             className="flex items-center gap-3 cursor-pointer group"
                           >
-                            <div 
-                              className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center transition-all ${
-                                active ? 'border-black bg-black' : 'border-neutral-300 group-hover:border-black'
-                              }`}
+                            <div
+                              className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center transition-all ${active ? 'border-black bg-black' : 'border-neutral-300 group-hover:border-black'
+                                }`}
                             >
                               {active && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
                             </div>
@@ -378,20 +377,19 @@ export default function AssessmentPage() {
                 <AnnotationBox title="Why we ask this">
                   Tell us about any chronic or long-term conditions. This helps us look for policies that cover these conditions from day one so you don\'t face unexpected waiting periods.
                 </AnnotationBox>
-                
+
                 <div className="space-y-4">
                   {[
                     { label: 'I have Diagnosed Diabetes', active: diabetes === 1, toggle: () => setDiabetes(diabetes === 1 ? 0 : 1) },
                     { label: 'I have Diagnosed Hypertension (High BP)', active: hypertension === 1, toggle: () => setHypertension(hypertension === 1 ? 0 : 1) },
                   ].map((item) => (
-                    <button 
-                      key={item.label} 
-                      onClick={item.toggle} 
-                      className={`w-full flex items-center justify-between p-4 border transition-all text-left ${
-                        item.active 
-                          ? 'border-black bg-neutral-50 text-black font-semibold' 
-                          : 'border-neutral-200 bg-white text-neutral-500 hover:border-black'
-                      }`}
+                    <button
+                      key={item.label}
+                      onClick={item.toggle}
+                      className={`w-full flex items-center justify-between p-4 border transition-all text-left ${item.active
+                        ? 'border-black bg-neutral-50 text-black font-semibold'
+                        : 'border-neutral-200 bg-white text-neutral-500 hover:border-black'
+                        }`}
                       style={{ borderRadius: '2px' }}
                     >
                       <span className="font-mono text-xs uppercase tracking-wider">{item.label}</span>
@@ -402,7 +400,7 @@ export default function AssessmentPage() {
                   <div className="flex items-center justify-between p-4 border border-neutral-200 bg-white" style={{ borderRadius: '2px' }}>
                     <span className="font-mono text-xs uppercase tracking-wider text-neutral-500">Any Other Health Conditions?</span>
                     <div className="flex items-center gap-4">
-                      <button 
+                      <button
                         type="button"
                         onClick={() => setChronicCount(Math.max(0, chronicCount - 1))}
                         className="h-8 w-8 flex items-center justify-center border border-neutral-200 hover:border-black text-lg font-mono"
@@ -411,7 +409,7 @@ export default function AssessmentPage() {
                         -
                       </button>
                       <span className="font-mono text-sm font-bold w-4 text-center">{chronicCount}</span>
-                      <button 
+                      <button
                         type="button"
                         onClick={() => setChronicCount(chronicCount + 1)}
                         className="h-8 w-8 flex items-center justify-center border border-neutral-200 hover:border-black text-lg font-mono"
@@ -431,16 +429,15 @@ export default function AssessmentPage() {
                 <AnnotationBox title="Fast & Private">
                   Upload your health report (PDF or a photo) and our secure helper will instantly fill in your vitals. Nothing is stored on our servers — your data stays yours.
                 </AnnotationBox>
-                
+
                 <div className="border border-neutral-200 bg-white" style={{ borderRadius: '2px' }}>
                   <div className="h-[260px] space-y-4 overflow-y-auto p-6 font-mono text-xs leading-6 text-neutral-600 border-b border-neutral-100">
                     {chatMessages.map((message, index) => (
                       <div key={`${message.sender}-${index}`} className={message.sender === 'user' ? 'text-right' : ''}>
-                        <div className={`inline-block max-w-[85%] border px-4 py-3 text-left whitespace-pre-line ${
-                          message.sender === 'user' 
-                            ? 'bg-black text-white border-black' 
-                            : 'bg-neutral-50 text-black border-neutral-200'
-                        }`} style={{ borderRadius: '2px' }}>
+                        <div className={`inline-block max-w-[85%] border px-4 py-3 text-left whitespace-pre-line ${message.sender === 'user'
+                          ? 'bg-black text-white border-black'
+                          : 'bg-neutral-50 text-black border-neutral-200'
+                          }`} style={{ borderRadius: '2px' }}>
                           {message.text}
                         </div>
                       </div>
@@ -534,9 +531,9 @@ export default function AssessmentPage() {
                           Take Photo
                         </button>
                       </div>
-                      
-                      <button 
-                        onClick={() => setStep(4)} 
+
+                      <button
+                        onClick={() => setStep(4)}
                         className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 hover:text-black transition-colors underline"
                       >
                         Enter Manually instead
@@ -552,7 +549,7 @@ export default function AssessmentPage() {
                         onKeyDown={(e) => (e.key === 'Enter' ? handleSendChat() : null)}
                         placeholder="Or type raw numbers here (e.g. HbA1c 6.2)..."
                       />
-                      <button 
+                      <button
                         onClick={handleSendChat}
                         className="px-5 py-2.5 bg-black text-white font-mono text-xs uppercase tracking-wider hover:bg-neutral-900 transition-all"
                         style={{ borderRadius: '2px' }}
@@ -568,7 +565,7 @@ export default function AssessmentPage() {
             {/* Step 4: Verify Vitals */}
             {step === 4 ? (
               <div className="space-y-6 animate-fadeIn">
-                
+
                 {/* Privacy Lock Banner */}
                 <div className="flex items-start gap-3 border-t-2 border-black bg-neutral-50 p-4" style={{ borderRadius: '2px' }}>
                   <Lock size={16} className="text-black mt-0.5" />
@@ -592,7 +589,7 @@ export default function AssessmentPage() {
                 </div>
 
                 <div className="grid gap-6">
-                  
+
                   {/* Monospace 2-column inputs grid */}
                   <div className="grid gap-6 sm:grid-cols-2">
                     <FormField label="My HbA1c (%)">
@@ -613,14 +610,13 @@ export default function AssessmentPage() {
                       <span className="field-label block mb-2">Do you consume tobacco?</span>
                       <div className="flex gap-4">
                         {['No', 'Yes'].map((value) => (
-                          <button 
-                            key={value} 
-                            onClick={() => setSmoker(value)} 
-                            className={`flex-1 h-11 border font-mono text-xs uppercase tracking-wider transition-all ${
-                              smoker === value 
-                                ? 'bg-black text-white border-black' 
-                                : 'bg-white text-neutral-400 border-neutral-200 hover:border-black'
-                            }`}
+                          <button
+                            key={value}
+                            onClick={() => setSmoker(value)}
+                            className={`flex-1 h-11 border font-mono text-xs uppercase tracking-wider transition-all ${smoker === value
+                              ? 'bg-black text-white border-black'
+                              : 'bg-white text-neutral-400 border-neutral-200 hover:border-black'
+                              }`}
                             style={{ borderRadius: '2px' }}
                           >
                             {value}
@@ -636,7 +632,7 @@ export default function AssessmentPage() {
                       <span className="uppercase text-neutral-400">Other health conditions count</span>
                       <span className="font-bold text-black bg-neutral-200 px-2 py-0.5 rounded">{chronicCount}</span>
                     </div>
-                    
+
                     <div className="relative pt-2">
                       <input
                         type="range"

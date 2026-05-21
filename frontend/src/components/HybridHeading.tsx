@@ -22,14 +22,14 @@ export function HybridHeading({ text, level = 'h1', className }: HybridHeadingPr
             level === 'h1'
               ? isOdd
                 ? 'font-sans font-black tracking-tight text-black'
-                : 'font-serif italic font-normal text-neutral-500'
+                : 'font-serif italic font-normal text-[var(--ink-mid)]'
               : level === 'h2'
               ? isOdd
                 ? 'font-mono font-bold tracking-widest text-black'
-                : 'font-sans font-semibold text-neutral-500'
+                : 'font-sans font-semibold text-[var(--ink-mid)]'
               : isOdd
               ? 'font-sans font-medium text-black'
-              : 'font-serif italic font-normal text-neutral-500',
+              : 'font-serif italic font-normal text-[var(--ink-mid)]',
             'mr-2 inline-block'
           )}
         >

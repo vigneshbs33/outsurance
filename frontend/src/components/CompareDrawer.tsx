@@ -108,29 +108,29 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
 
       <div 
         className="w-full max-w-[800px] border-t-2 border-black bg-white p-6 shadow-2xl transition-all duration-300 md:max-h-[85vh] overflow-y-auto"
-        style={{ borderRadius: '2px 2px 0 0' }}
+        style={{ borderRadius: '12px 12px 0 0' }}
       >
         <header className="mb-6 flex justify-between items-center">
           <div>
-            <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400">Compare Policies</span>
+            <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)]">Compare Policies</span>
             <h2 className="font-[var(--font-heading)] text-lg font-black uppercase tracking-tight text-black">
               Compare Policy Details
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="font-mono text-xs uppercase tracking-widest text-neutral-400 hover:text-black transition-colors"
+            className="font-mono text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-black transition-colors"
           >
             [ Close ]
           </button>
         </header>
 
         {/* Side-by-side Table */}
-        <div className="overflow-x-auto border border-neutral-200" style={{ borderRadius: '2px' }}>
+        <div className="overflow-x-auto border border-neutral-200" style={{ borderRadius: '12px' }}>
           <table className="w-full min-w-[500px] border-collapse font-mono text-xs">
             <thead>
               <tr className="border-b border-black bg-neutral-50">
-                <th className="p-3 text-left font-bold text-neutral-500 uppercase tracking-widest text-[9px] w-[140px] sticky left-0 bg-neutral-50 z-10 border-r border-neutral-200">
+                <th className="p-3 text-left font-bold text-[var(--ink-mid)] uppercase tracking-widest text-[9px] w-[140px] sticky left-0 bg-neutral-50 z-10 border-r border-neutral-200">
                   Policy Features
                 </th>
                 {plans.map((plan) => {
@@ -143,7 +143,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
                         selected ? 'bg-neutral-100 font-bold' : 'hover:bg-neutral-50'
                       }`}
                     >
-                      <span className="text-[9px] uppercase text-neutral-400 tracking-wider block">
+                      <span className="text-[9px] uppercase text-[var(--ink-soft)] tracking-wider block">
                         {plan.insurer}
                       </span>
                       <span className="font-bold text-black uppercase tracking-tight text-xs block mt-0.5">
@@ -188,7 +188,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
 
         {/* Scroll Help Text */}
         <div className="mt-2 text-center md:hidden">
-          <span className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest">
+          <span className="font-mono text-[9px] text-[var(--ink-soft)] uppercase tracking-widest">
             Scroll table horizontally to compare →
           </span>
         </div>
@@ -204,7 +204,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
             }}
             disabled={!selectedPlanId}
             className="flex-1 h-11 bg-black text-white hover:bg-neutral-900 transition-colors uppercase font-mono text-xs tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ borderRadius: '2px' }}
+            style={{ borderRadius: '12px' }}
           >
             View Full Policy Details
           </button>
@@ -215,7 +215,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
               onClose();
             }}
             className="h-11 px-6 border border-neutral-200 text-black hover:border-black transition-colors uppercase font-mono text-xs tracking-wider"
-            style={{ borderRadius: '2px' }}
+            style={{ borderRadius: '12px' }}
           >
             Clear Selection
           </button>
