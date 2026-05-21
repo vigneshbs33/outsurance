@@ -24,7 +24,7 @@ const LetterStagger = ({ word }: { word: string }) => {
   };
   const item = {
     hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { ease: [0.16, 1, 0.3, 1], duration: 0.5 } }
+    show: { opacity: 1, y: 0, transition: { ease: [0.16, 1, 0.3, 1] as const, duration: 0.5 } }
   };
 
   return (
