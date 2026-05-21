@@ -586,7 +586,7 @@ export default function AssessmentPage() {
   function handleMedicalToggle(m: string, cond: HealthCondition) {
     setMemberMedicalHistory((prev) => {
       const current = prev[m] ?? {} as Record<HealthCondition, boolean>;
-      let next = { ...current };
+      const next = { ...current };
 
       if (cond === HealthCondition.NONE) {
         Object.keys(HealthCondition).forEach((key) => {

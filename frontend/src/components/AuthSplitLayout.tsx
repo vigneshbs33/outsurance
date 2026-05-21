@@ -66,7 +66,9 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
       window.history.pushState(null, '', targetPath);
     }
 
-    setError(null);
+    setTimeout(() => {
+      setError(null);
+    }, 0);
 
     gsap.to(videoLoginRef.current, { opacity: mode === 'login' ? 1 : 0, duration: 0.4, ease: 'power2.inOut' });
     gsap.to(videoSignupRef.current, { opacity: mode === 'signup' ? 1 : 0, duration: 0.4, ease: 'power2.inOut' });
@@ -134,8 +136,9 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
         setError(authError.message);
         setLoading(false);
       }
-    } catch (err: any) {
-      setError(err?.message || 'Google Login failed');
+    } catch (err: unknown) {
+      const errorObj = err as { message?: string } | null;
+      setError(errorObj?.message || 'Google Login failed');
       setLoading(false);
     }
   }

@@ -16,9 +16,13 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
 
   useEffect(() => {
     if (plans.length > 0) {
-      setSelectedPlanId(plans[0].id);
+      setTimeout(() => {
+        setSelectedPlanId(plans[0].id);
+      }, 0);
     } else {
-      setSelectedPlanId(null);
+      setTimeout(() => {
+        setSelectedPlanId(null);
+      }, 0);
     }
   }, [plans]);
 
@@ -107,8 +111,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
       <div className="absolute inset-0 -z-10" onClick={onClose} />
 
       <div 
-        className="w-full max-w-[800px] border-t-2 border-black bg-white p-6 shadow-2xl transition-all duration-300 md:max-h-[85vh] overflow-y-auto"
-        style={{ borderRadius: '12px 12px 0 0' }}
+        className="w-full max-w-[800px] border-t-2 border-black bg-white p-6 shadow-2xl transition-all duration-300 md:max-h-[85vh] overflow-y-auto rounded-t-xl"
       >
         <header className="mb-6 flex justify-between items-center">
           <div>
@@ -126,7 +129,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
         </header>
 
         {/* Side-by-side Table */}
-        <div className="overflow-x-auto border border-neutral-200" style={{ borderRadius: '12px' }}>
+        <div className="overflow-x-auto border border-neutral-200 rounded-xl">
           <table className="w-full min-w-[500px] border-collapse font-mono text-xs">
             <thead>
               <tr className="border-b border-black bg-neutral-50">
@@ -203,8 +206,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
               }
             }}
             disabled={!selectedPlanId}
-            className="flex-1 h-11 bg-black text-white hover:bg-neutral-900 transition-colors uppercase font-mono text-xs tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ borderRadius: '12px' }}
+            className="flex-1 h-11 bg-black text-white hover:bg-neutral-900 transition-colors uppercase font-mono text-xs tracking-wider disabled:opacity-30 disabled:cursor-not-allowed rounded-xl"
           >
             View Full Policy Details
           </button>
@@ -214,8 +216,7 @@ export default function CompareDrawer({ plans, isOpen, onClose, onClear, onSelec
               onClear();
               onClose();
             }}
-            className="h-11 px-6 border border-neutral-200 text-black hover:border-black transition-colors uppercase font-mono text-xs tracking-wider"
-            style={{ borderRadius: '12px' }}
+            className="h-11 px-6 border border-neutral-200 text-black hover:border-black transition-colors uppercase font-mono text-xs tracking-wider rounded-xl"
           >
             Clear Selection
           </button>

@@ -39,11 +39,11 @@ export default function PlanDetailPage({ params }: PageProps) {
           fetchAllPlans(),
           getLatestRecommendation(user.id)
         ]);
-        const found = allPlans.find((p: Record<string, any>) => p.id === planId);
+        const found = allPlans.find((p: Record<string, unknown>) => (p as { id: number }).id === planId);
         if (found) {
           let mergedPlan = { ...found };
           if (recommendation && recommendation.top_plan_ids) {
-            const recPlan = recommendation.top_plan_ids.find((rp: any) => rp.id === planId);
+            const recPlan = recommendation.top_plan_ids.find((rp: { id: number }) => rp.id === planId);
             if (recPlan) {
               mergedPlan = {
                 ...mergedPlan,
@@ -107,7 +107,7 @@ export default function PlanDetailPage({ params }: PageProps) {
         <main className="flex-1 p-8">
           <div className="max-w-[480px] mx-auto pt-16">
             <AnnotationBox title="💡 Oops!">
-              We couldn't find this policy. Try returning to the plan finder!
+              We couldn&apos;t find this policy. Try returning to the plan finder!
             </AnnotationBox>
             <button onClick={() => router.push('/explorer')} className="mono-btn-primary mt-6">
               Return to Plan Finder

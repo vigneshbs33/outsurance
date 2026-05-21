@@ -18,20 +18,15 @@ export function saveCompareIds(ids: number[]) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
-    // Trigger custom event to notify other hooks
     window.dispatchEvent(new Event('outsurance_compare_change'));
   } catch {
-    // silently fail — compare state is non-critical
   }
 }
 
 export function useCompare() {
-  const [ids, setIds] = useState<number[]>([]);
+  const [ids, setIds] = useState<number[]>(() => getCompareIds());
 
   useEffect(() => {
-    // Initial load
-    setIds(getCompareIds());
-
     const handleStorageChange = () => {
       setIds(getCompareIds());
     };
@@ -52,7 +47,6 @@ export function useCompare() {
       next = current.filter((x) => x !== id);
     } else {
       if (current.length >= 3) {
-        // Limit to 3 plans
         return false;
       }
       next = [...current, id];

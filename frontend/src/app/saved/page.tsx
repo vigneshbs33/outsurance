@@ -7,9 +7,22 @@ import { AnnotationBox, SectionEyebrow } from '../../components/editorial';
 import { fetchAllPlans } from '../../lib/api';
 import { getSavedPlanIds, supabase, toggleSavedPlan } from '../../lib/supabase';
 
+interface SavedPlan {
+  id: number;
+  insurer?: string;
+  provider?: string;
+  name?: string;
+  annual_premium?: number;
+  coverage?: number;
+  diabetes_day1?: boolean;
+  pre_existing_wait_years?: number;
+  preexisting_wait_years?: number;
+  suitability_score?: number;
+}
+
 function SavedContent() {
   const router = useRouter();
-  const [savedPlans, setSavedPlans] = useState<Record<string, any>[]>([]);
+  const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -19,7 +32,7 @@ function SavedContent() {
       }
       const ids = await getSavedPlanIds(user.id);
       const allPlans = await fetchAllPlans();
-      setSavedPlans(allPlans.filter((plan: Record<string, any>) => ids.includes(plan.id as number)));
+      setSavedPlans((allPlans as unknown as SavedPlan[]).filter((plan: SavedPlan) => ids.includes(plan.id)));
     });
   }, [router]);
 
@@ -45,7 +58,7 @@ function SavedContent() {
           {savedPlans.length === 0 ? (
             <div className="max-w-[480px] space-y-6">
               <AnnotationBox title="💡 Quick tip">
-                You haven't bookmarked any policies yet! Use our plan explorer to find plans matching your health numbers, then save them here for quick access.
+                You haven&apos;t bookmarked any policies yet! Use our plan explorer to find plans matching your health numbers, then save them here for quick access.
               </AnnotationBox>
               <div className="max-w-[200px]">
                 <button 
@@ -63,12 +76,11 @@ function SavedContent() {
                 {savedPlans.map((plan, index) => (
                   <div 
                     key={String(plan.id)} 
-                    className="border border-neutral-200 p-6 bg-white hover:border-black transition-all flex flex-col justify-between"
-                    style={{ borderRadius: '12px' }}
+                    className="border border-neutral-200 p-6 bg-white hover:border-black transition-all flex flex-col justify-between rounded-xl"
                   >
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-[9px] bg-neutral-100 px-2 py-0.5" style={{ borderRadius: '12px' }}>0{index + 1}</span>
+                        <span className="font-mono text-[9px] bg-neutral-100 px-2 py-0.5 rounded-full">0{index + 1}</span>
                         <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)]">
                           {String(plan.insurer || plan.provider || 'Star Health')}
                         </span>
@@ -99,7 +111,7 @@ function SavedContent() {
                         <span className="font-mono text-[10px] text-black font-semibold">Match Score: {Number(plan.suitability_score || 8.4).toFixed(1)}</span>
                       </div>
                       <button 
-                        onClick={() => removePlan(plan.id as number)} 
+                        onClick={() => removePlan(plan.id)} 
                         className="font-mono text-[10px] uppercase text-[var(--ink-soft)] hover:text-black transition-colors underline"
                       >
                         Remove

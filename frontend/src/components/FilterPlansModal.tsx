@@ -24,6 +24,8 @@ export interface Plan {
   pros?: string[];
   cons?: string[];
   type?: string;
+  claim_settlement_ratio?: number;
+  cosine_similarity?: number;
   [key: string]: unknown;
 }
 
@@ -63,7 +65,9 @@ export function FilterPlansModal({
 
   useEffect(() => {
     if (isOpen) {
-      setTempFilters({ ...activeFilters });
+      setTimeout(() => {
+        setTempFilters({ ...activeFilters });
+      }, 0);
     }
   }, [isOpen, activeFilters]);
 

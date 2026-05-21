@@ -118,8 +118,10 @@ export default function LandingPage() {
     if (!isDeleting && subText === fullWord) {
       timer = setTimeout(() => setIsDeleting(true), 2000);
     } else if (isDeleting && subText === "") {
-      setIsDeleting(false);
-      setWordIdx((prev) => (prev + 1) % words.length);
+      setTimeout(() => {
+        setIsDeleting(false);
+        setWordIdx((prev) => (prev + 1) % words.length);
+      }, 0);
     }
 
     return () => clearTimeout(timer);
@@ -942,7 +944,7 @@ export default function LandingPage() {
                 <span
                   className={`feature-slashes feature-slashes-${idx} text-sutera-light-grey mx-1.5 font-light`}
                 >
-                  /////////
+                  {'/////////'}
                 </span>
                 <span
                   className={`feature-label feature-label-${idx} text-sutera-black font-medium inline-block`}

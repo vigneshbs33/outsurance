@@ -53,9 +53,10 @@ function ExplorerContent() {
   // Pagination State
   const [visibleCount, setVisibleCount] = useState(10);
 
-  // Reset pagination when search query or refine search parameters change
   useEffect(() => {
-    setVisibleCount(10);
+    setTimeout(() => {
+      setVisibleCount(10);
+    }, 0);
   }, [query, premiumLimit, coverageMin, selectedTypes, selectedInsurers, sortBy]);
 
   // Modals & Comparison State
@@ -75,8 +76,8 @@ function ExplorerContent() {
         getLatestRecommendation(user.id)
       ]).then(([allPlans, recommendation]) => {
         if (recommendation && recommendation.top_plan_ids && recommendation.top_plan_ids.length > 0) {
-          const mergedPlans = allPlans.map((plan: any) => {
-            const recPlan = recommendation.top_plan_ids.find((rp: any) => rp.id === plan.id);
+          const mergedPlans = (allPlans as Plan[]).map((plan) => {
+            const recPlan = recommendation.top_plan_ids.find((rp: { id: unknown }) => rp.id === plan.id);
             if (recPlan) {
               return {
                 ...plan,
@@ -88,7 +89,7 @@ function ExplorerContent() {
             }
             return plan;
           });
-          setPlans(mergedPlans as Plan[]);
+          setPlans(mergedPlans);
           setActiveId((mergedPlans[0]?.id as number | null) ?? null);
         } else {
           setPlans(allPlans as Plan[]);
@@ -121,7 +122,7 @@ function ExplorerContent() {
 
   // Filter & Sort Logic
   const filteredAndSorted = useMemo(() => {
-    let result = plans.filter((plan) => {
+    const result = plans.filter((plan) => {
       // Query filter
       const lower = query.toLowerCase();
       const matchesQuery = !lower || 
@@ -135,7 +136,7 @@ function ExplorerContent() {
       const matchesCoverage = plan.coverage >= coverageMin;
 
       // Plan types filter
-      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(plan.type);
+      const matchesType = selectedTypes.length === 0 || (plan.type ? selectedTypes.includes(plan.type) : false);
 
       // Insurers filter
       const matchesInsurer = selectedInsurers.length === 0 || selectedInsurers.includes(plan.insurer);

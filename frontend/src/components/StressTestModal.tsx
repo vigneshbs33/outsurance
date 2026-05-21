@@ -10,13 +10,28 @@ export interface Plan {
   name: string;
   insurer: string;
   coverage: number;
+  annual_premium: number;
   copayment_pct?: number;
   room_rent_limit?: string;
   diabetes_day1?: boolean;
   hypertension_day1?: boolean;
   pre_existing_wait_years?: number;
   preexisting_wait_years?: number;
-  [key: string]: any;
+  is_family_floater?: boolean;
+  warning_flags?: string[];
+  pros?: string[];
+  cons?: string[];
+  coverage_highlights?: string[];
+  plain_english_explanation?: string;
+  hospital_network_count?: number;
+  suitability_score?: number;
+  type?: string;
+  no_claim_bonus_pct?: number;
+  restoration_benefit?: boolean;
+  cosine_similarity?: number;
+  exclusions?: string[];
+  claim_settlement_ratio?: number;
+  [key: string]: unknown;
 }
 
 interface Scenario {
@@ -54,11 +69,13 @@ export default function StressTestModal({ plan, isOpen, onClose, suggestedPlanNa
 
   useEffect(() => {
     if (isOpen && initialScenario) {
-      setSelectedScenarioId(initialScenario.id || 'custom');
-      if (initialScenario.name) setCustomName(initialScenario.name);
-      if (initialScenario.cost !== undefined) setCustomCost(initialScenario.cost);
-      if (initialScenario.days !== undefined) setCustomDays(initialScenario.days);
-      if (initialScenario.isChronic !== undefined) setCustomIsChronic(initialScenario.isChronic);
+      setTimeout(() => {
+        setSelectedScenarioId(initialScenario.id || 'custom');
+        if (initialScenario.name) setCustomName(initialScenario.name);
+        if (initialScenario.cost !== undefined) setCustomCost(initialScenario.cost);
+        if (initialScenario.days !== undefined) setCustomDays(initialScenario.days);
+        if (initialScenario.isChronic !== undefined) setCustomIsChronic(initialScenario.isChronic);
+      }, 0);
     }
   }, [isOpen, initialScenario]);
 
