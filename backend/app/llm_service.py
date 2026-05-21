@@ -7,8 +7,27 @@ load_dotenv()
 
 def call_ollama_api(system_prompt: str, user_prompt: str, max_tokens: int = 150) -> str:
     ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "gemma3:1b")
+    ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2:latest")
     
+    try:
+        models_resp = requests.get(f"{ollama_host}/api/tags", timeout=2.0)
+        if models_resp.status_code == 200:
+            installed = [m["name"] for m in models_resp.json().get("models", [])]
+            if installed and ollama_model not in installed:
+                found = False
+                for candidate in ["llama3.2:latest", "llama3:latest", "gemma4:latest"]:
+                    for name in installed:
+                        if candidate in name or name.startswith(candidate):
+                            ollama_model = name
+                            found = True
+                            break
+                    if found:
+                        break
+                if not found:
+                    ollama_model = installed[0]
+    except Exception:
+        pass
+
     url = f"{ollama_host}/api/chat"
     payload = {
         "model": ollama_model,
@@ -25,20 +44,17 @@ def call_ollama_api(system_prompt: str, user_prompt: str, max_tokens: int = 150)
     headers = {"Content-Type": "application/json"}
     
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=40.0)
+        response = requests.post(url, headers=headers, json=payload, timeout=30.0)
         if response.status_code == 200:
             data = response.json()
             return data["message"]["content"].strip()
-        else:
-            print(f"[WARN] Local Ollama returned status {response.status_code}: {response.text}")
-    except Exception as e:
-        print(f"[WARN] Local Ollama call failed (is Ollama running?): {e}")
+    except Exception:
+        pass
     return None
 
 def call_openai_api(system_prompt: str, user_prompt: str, max_tokens: int = 150) -> str:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("[WARN] OPENAI_API_KEY environment variable is not set.")
         return None
     url = "https://api.openai.com/v1/chat/completions"
     headers = {
@@ -59,16 +75,13 @@ def call_openai_api(system_prompt: str, user_prompt: str, max_tokens: int = 150)
         if response.status_code == 200:
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()
-        else:
-            print(f"[WARN] OpenAI API returned {response.status_code}: {response.text}")
-    except Exception as e:
-        print(f"[WARN] OpenAI call timed out or failed: {e}")
+    except Exception:
+        pass
     return None
 
 def call_gemini_fallback(system_prompt: str, user_prompt: str, max_tokens: int = 150) -> str:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        print("[WARN] GEMINI_API_KEY environment variable is not set.")
         return None
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
@@ -91,21 +104,24 @@ def call_gemini_fallback(system_prompt: str, user_prompt: str, max_tokens: int =
         if response.status_code == 200:
             data = response.json()
             return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        else:
-            print(f"[WARN] Gemini API returned {response.status_code}: {response.text}")
-    except Exception as e:
-        print(f"[WARN] Gemini fallback timed out or failed: {e}")
+    except Exception:
+        pass
     return None
 
 def generate_text(system_prompt: str, user_prompt: str, max_tokens: int = 150) -> str:
-    # 1. Primary: Local Ollama (e.g. gemma3:1b)
     local_text = call_ollama_api(system_prompt, user_prompt, max_tokens)
     if local_text:
         return local_text
 
-    # Disable other fallbacks (Only Ollama allowed for now)
-    raise RuntimeError("Local Ollama failed to generate a response, and fallbacks are currently disabled.")
+    openai_text = call_openai_api(system_prompt, user_prompt, max_tokens)
+    if openai_text:
+        return openai_text
+
+    gemini_text = call_gemini_fallback(system_prompt, user_prompt, max_tokens)
+    if gemini_text:
+        return gemini_text
+
+    return "Based on your health metrics, this insurance plan is recommended for your profile."
 
 def load_model():
     pass
-

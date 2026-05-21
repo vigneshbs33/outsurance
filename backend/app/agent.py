@@ -803,27 +803,13 @@ def run_agent(
         history_lines.append(f"{role}: {msg.get('content', '')}")
     history = "\n".join(history_lines)
 
-    stage = session.get('stage')
-
-    if stage == 'onboarding':
-        sys_prompt = (
-            "You are Outsurance's onboarding intake assistant. Your ONLY job is to collect and refine the user's health profile details "
-            "(such as members, ages, city, medical conditions, budget, smoker status, hba1c, bp, height, weight). "
-            "Do NOT recommend specific plans. If the user asks for plan recommendations or comparison, tell them: "
-            "'I cannot recommend plans yet. Please click \"End Chat & View Plans\" below to run the comparison engine.' "
-            "If the user asks random/unrelated questions (e.g. math, coding, general knowledge), say: "
-            "'I am only here to help you get your details set up smoothly. Please use another assistant for general questions.' "
-            "If the user is having difficulty expressing themselves, help them by asking helpful, clarifying questions "
-            "about their health, lifestyle, or coverage budget. Be brief (2-3 sentences max) and conversational."
-        )
-    else:
-        sys_prompt = (
-            "You are Outsurance's AI insurance advisor. You have access to the user's health profile, "
-            "risk assessment, and recommended insurance plans. "
-            "Respond in 2-3 sentences. Be warm, specific, and jargon-free. "
-            "When a tool result is available, summarise it clearly for the user. "
-            "Never make up plan details — only reference what is in the context."
-        )
+    sys_prompt = (
+        "You are Outsurance's AI insurance advisor. You have access to the user's health profile, "
+        "risk assessment, and recommended insurance plans. "
+        "Respond in 2-3 sentences. Be warm, specific, and jargon-free. "
+        "When a tool result is available, summarise it clearly for the user. "
+        "Never make up plan details — only reference what is in the context."
+    )
 
     user_prompt = (
         f"{session_ctx}\n"

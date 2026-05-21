@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Compass, LayoutDashboard, LogOut, Plus, User, Bookmark } from 'lucide-react';
+import { Compass, LayoutDashboard, LogOut, Plus, Shield, User, Bookmark } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { Crosshair } from './editorial';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -20,8 +21,6 @@ export default function Sidebar() {
   const [name, setName] = useState('Member');
   const [initials, setInitials] = useState('FI');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [profileMeta, setProfileMeta] = useState<any>(null);
-  const [city, setCity] = useState('');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -29,30 +28,19 @@ export default function Sidebar() {
 
       supabase
         .from('profiles')
-        .select('*')
+        .select('full_name')
         .eq('id', user.id)
         .maybeSingle()
         .then(({ data }) => {
-          if (!data) return;
-          const rawName = data.full_name || '';
-          let cleanName = rawName;
-          let meta: any = null;
-          if (rawName.includes(' || ')) {
-            const parts = rawName.split(' || ');
-            cleanName = parts[0];
-            try {
-              meta = JSON.parse(parts[1]);
-            } catch (e) {
-              console.error(e);
-            }
-          }
+          if (!data?.full_name) return;
+          const raw = data.full_name as string;
+          const cleanName = raw.includes(' || ') ? raw.split(' || ')[0].trim() : raw.trim();
           setName(cleanName);
-          setProfileMeta(meta);
-          setCity(data.city || '');
           setInitials(
             cleanName
               .split(' ')
-              .map((value: string) => value[0])
+              .filter((v: string) => v.length > 0)
+              .map((v: string) => v[0])
               .join('')
               .slice(0, 2)
               .toUpperCase()
@@ -70,7 +58,7 @@ export default function Sidebar() {
     <>
       {/* 1. Desktop Left Sidebar */}
       <aside className="hidden min-h-screen w-[290px] flex-col justify-between border-r border-neutral-200 bg-white px-8 py-8 lg:flex shrink-0">
-        <div className="space-y-6">
+        <div className="space-y-10">
           <div
             className="flex items-center gap-1 select-none cursor-pointer pb-6 border-b border-neutral-100"
             onClick={() => router.push('/')}
@@ -105,34 +93,15 @@ export default function Sidebar() {
               );
             })}
           </nav>
-
-          {/* Family Group Details Card */}
-          {profileMeta && (
-            <div className="bg-[#f9fbf9] border border-neutral-200 p-4 font-mono text-[10px] space-y-2 mt-4 uppercase rounded">
-              <span className="text-neutral-400 font-bold block">Protected Group</span>
-              <div className="border-b border-neutral-100 pb-1 flex justify-between">
-                <span className="text-neutral-500">City</span>
-                <span className="font-bold text-black">{city || 'N/A'}</span>
-              </div>
-              <div className="border-b border-neutral-100 pb-1">
-                <span className="text-neutral-500 block">Covered Members</span>
-                <span className="font-bold text-black block mt-0.5 truncate">
-                  {profileMeta.covered_members?.join(', ') || 'Self'}
-                </span>
-              </div>
-              <Link href="/assessment" className="text-[#00a278] hover:underline font-bold block pt-1">
-                ✎ Edit Profile
-              </Link>
-            </div>
-          )}
         </div>
 
         <div className="space-y-6">
           <Link
             href="/assessment"
             className="flex min-h-11 items-center justify-center gap-2 bg-black px-4 hover:bg-neutral-900 transition-colors"
-            style={{ borderRadius: '12px' }}
+            style={{ borderRadius: '2px' }}
           >
+            <Plus size={14} className="text-white" />
             <span className="font-mono text-xs uppercase tracking-wider font-bold text-white">New Assessment</span>
           </Link>
 
@@ -144,7 +113,7 @@ export default function Sidebar() {
               </div>
               <div 
                 className="flex h-9 w-9 items-center justify-center border border-black font-mono text-[10px] font-bold bg-neutral-50"
-                style={{ borderRadius: '12px' }}
+                style={{ borderRadius: '2px' }}
               >
                 {initials}
               </div>
@@ -172,7 +141,7 @@ export default function Sidebar() {
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className="font-mono text-[10px] uppercase tracking-wider text-black border border-black px-3 py-1"
-          style={{ borderRadius: '12px' }}
+          style={{ borderRadius: '2px' }}
         >
           Menu
         </button>
@@ -191,12 +160,13 @@ export default function Sidebar() {
             <button
               onClick={() => setIsMobileMenuOpen(false)}
               className="font-mono text-xs uppercase tracking-widest text-neutral-400 hover:text-black border border-neutral-200 px-3 py-1"
-              style={{ borderRadius: '12px' }}
+              style={{ borderRadius: '2px' }}
             >
               [ Close ]
             </button>
           </div>
 
+          {/* Navigation Links inside Drawer */}
           <nav className="flex-1 flex flex-col justify-center space-y-6">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
@@ -221,31 +191,17 @@ export default function Sidebar() {
                 </Link>
               );
             })}
-
-            {profileMeta && (
-              <div className="bg-[#f9fbf9] border border-neutral-200 p-4 font-mono text-[10px] space-y-2 mt-4 uppercase rounded">
-                <span className="text-neutral-400 font-bold block">Protected Group</span>
-                <div className="border-b border-neutral-100 pb-1 flex justify-between">
-                  <span className="text-neutral-500">City</span>
-                  <span className="font-bold text-black">{city || 'N/A'}</span>
-                </div>
-                <div className="border-b border-neutral-100 pb-1">
-                  <span className="text-neutral-500 block">Covered Members</span>
-                  <span className="font-bold text-black block mt-0.5 truncate">
-                    {profileMeta.covered_members?.join(', ') || 'Self'}
-                  </span>
-                </div>
-              </div>
-            )}
           </nav>
 
+          {/* Bottom Actions inside Drawer */}
           <div className="space-y-6 pt-6 border-t border-neutral-200">
             <Link
               href="/assessment"
               onClick={() => setIsMobileMenuOpen(false)}
               className="flex min-h-11 items-center justify-center gap-2 bg-black px-4 hover:bg-neutral-900 transition-colors"
-              style={{ borderRadius: '12px' }}
+              style={{ borderRadius: '2px' }}
             >
+              <Plus size={14} className="text-white" />
               <span className="font-mono text-xs uppercase tracking-wider font-bold text-white">New Assessment</span>
             </Link>
 
@@ -260,7 +216,7 @@ export default function Sidebar() {
                   handleSignOut();
                 }}
                 className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 hover:text-black border border-neutral-200 px-3 py-1"
-                style={{ borderRadius: '12px' }}
+                style={{ borderRadius: '2px' }}
               >
                 Sign Out
               </button>

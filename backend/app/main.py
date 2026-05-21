@@ -38,8 +38,11 @@ ML_DIR   = os.path.join(BASE_DIR, 'ml')
 
 FEATURES = [
     'age', 'bmi', 'hba1c', 'bp_systolic',
-    'smoker', 'has_diabetes', 'has_hypertension',
-    'condition_risk_score',   # ← renamed from chronic_count
+    'smoker',
+    # has_diabetes and has_hypertension removed — now encoded inside
+    # condition_risk_score (weights 0.42 and 0.35). Keeping both would let
+    # XGBoost split on the binary flag, collapsing condition_risk_score importance.
+    'condition_risk_score',
     'bmi_age_interaction', 'metabolic_risk_score',
 ]
 
@@ -50,8 +53,6 @@ FEATURE_LABELS = {
     'hba1c': 'HbA1c (%)',
     'bp_systolic': 'Blood Pressure (systolic)',
     'smoker': 'Smoker',
-    'has_diabetes': 'Diabetes',
-    'has_hypertension': 'Hypertension',
     'condition_risk_score': 'Condition Severity Score',
     'bmi_age_interaction': 'BMI×Age (metabolic load)',
     'metabolic_risk_score': 'Metabolic Risk Score',
@@ -125,24 +126,6 @@ class UserProfile(BaseModel):
     has_hypertension: Optional[bool] = None
     coverage_for: Optional[str] = 'Individual'
     family_members: Optional[int] = 1
-    
-    # PolicyBazaar Form fields
-    gender: Optional[str] = None
-    city: Optional[str] = None
-    full_name: Optional[str] = None
-    mobile_number: Optional[str] = None
-    covered_members: Optional[List[str]] = []
-    member_ages: Optional[Dict[str, int]] = {}
-    medical_history: Optional[List[str]] = []
-    height: Optional[float] = None
-    weight: Optional[float] = None
-    lab_report_text: Optional[str] = None
-    language: Optional[str] = 'English'
-    groups: Optional[List[Dict[str, Any]]] = []
-    member_medical_history: Optional[Dict[str, List[str]]] = {}
-    member_vitals: Optional[Dict[str, Dict[str, Any]]] = {}
-    member_dobs: Optional[Dict[str, str]] = {}
-
 
 class ExtractionRequest(BaseModel):
     raw_text: Optional[str] = None
@@ -171,10 +154,20 @@ def assess_risk(profile: UserProfile, llm_generate=None):
     metabolic_risk_score = round((profile.hba1c - 5.0) * profile.bmi / 10, 2)
 
     # STAGE 0: Dynamic condition scoring
+    # Build a complete medical term list — form flags + free-text history.
+    # This ensures condition_risk_score captures diabetes/hypertension even
+    # when the user ticked the form checkbox but didn't type it in free text.
+    medical_terms = list(profile.medical_history or [])
+    history_lower = " ".join(medical_terms).lower()
+    if has_diabetes and "diabet" not in history_lower:
+        medical_terms.append("diabetes")
+    if has_hypertension and "hypert" not in history_lower and "blood pressure" not in history_lower:
+        medical_terms.append("hypertension")
+
     condition_detail = None
-    if profile.medical_history and len(profile.medical_history) > 0:
+    if medical_terms:
         from .condition_scorer import score_conditions
-        condition_detail = score_conditions(profile.medical_history, llm_generate)
+        condition_detail = score_conditions(medical_terms, llm_generate)
         condition_risk_score = condition_detail["normalized_for_xgboost"]
     else:
         # Fallback: map chronic_count (legacy) to float range
@@ -186,8 +179,6 @@ def assess_risk(profile: UserProfile, llm_generate=None):
         'hba1c': profile.hba1c,
         'bp_systolic': profile.bp_systolic,
         'smoker': profile.smoker,
-        'has_diabetes': int(has_diabetes),
-        'has_hypertension': int(has_hypertension),
         'condition_risk_score': condition_risk_score,
         'bmi_age_interaction': bmi_age_interaction,
         'metabolic_risk_score': metabolic_risk_score,
@@ -199,18 +190,27 @@ def assess_risk(profile: UserProfile, llm_generate=None):
         pred_idx  = risk_model.predict(X)[0]
         risk_tier = label_encoder.inverse_transform([pred_idx])[0]
         proba     = risk_model.predict_proba(X)[0]
-        risk_score = float(max(proba))
+        
+        class_to_idx = {cls: idx for idx, cls in enumerate(label_encoder.classes_)}
+        idx_critical = class_to_idx.get("Critical", 0)
+        idx_high     = class_to_idx.get("High", 1)
+        idx_low      = class_to_idx.get("Low", 2)
+        idx_medium   = class_to_idx.get("Medium", 3)
+        
+        prob_critical = float(proba[idx_critical])
+        prob_high     = float(proba[idx_high])
+        prob_low      = float(proba[idx_low])
+        prob_medium   = float(proba[idx_medium])
+        
+        risk_score = (prob_low * 0.12) + (prob_medium * 0.33) + (prob_high * 0.58) + (prob_critical * 0.85)
 
-        # Feature-importance-weighted explanation
         explanation = {}
         for feat in FEATURES:
             imp = feature_importances.get(feat, feature_importances.get(f'f{FEATURES.index(feat)}', 0.0))
             label = FEATURE_LABELS.get(feat, feat)
             explanation[label] = round(imp, 4)
-        # Sort by importance and return top 6
         explanation = dict(sorted(explanation.items(), key=lambda x: x[1], reverse=True)[:6])
     else:
-        # Fallback heuristic
         score = 0.0
         if profile.age > 50: score += 0.15
         if profile.bmi > 30: score += 0.12
@@ -220,7 +220,7 @@ def assess_risk(profile: UserProfile, llm_generate=None):
         if profile.smoker: score += 0.12
         if profile.diabetes: score += 0.18
         if profile.hypertension: score += 0.10
-        score += condition_risk_score * 0.06
+        score += condition_risk_score * 0.12
         
         rs = min(1.0, score)
         if rs >= 0.70:   risk_tier = "Critical"

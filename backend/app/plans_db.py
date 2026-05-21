@@ -4,6 +4,7 @@
 INSURANCE_PLANS = [
   {
       "id": 1,
+      "link": "https://www.starhealth.in/health-insurance/arogya-sanjeevani-policy",
       "name": "Arogya Sanjeevani",
       "insurer": "Star Health",
       "type": "Basic",
@@ -30,6 +31,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 2,
+      "link": "https://www.hdfcergo.com/health-insurance/optima-secure",
       "name": "HDFC Optima Secure",
       "insurer": "HDFC ERGO",
       "type": "Comprehensive",
@@ -56,6 +58,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 3,
+      "link": "https://www.starhealth.in/health-insurance/diabetes-safe-insurance-policy",
       "name": "Star Health Diabetes Safe",
       "insurer": "Star Health",
       "type": "Comprehensive",
@@ -82,6 +85,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 4,
+      "link": "https://www.nivabupa.com/health-insurance/reassure-health-insurance.html",
       "name": "Niva Bupa ReAssure 2.0",
       "insurer": "Niva Bupa",
       "type": "Comprehensive",
@@ -108,6 +112,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 5,
+      "link": "https://www.careinsurance.com/product/care-supreme-health-insurance",
       "name": "Care Health Care Supreme",
       "insurer": "Care Health",
       "type": "Comprehensive",
@@ -134,6 +139,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 6,
+      "link": "https://licindia.in/web/guest/lic-s-arogya-rakshak-plan-906-",
       "name": "LIC Arogya Rakshak",
       "insurer": "LIC",
       "type": "Senior",
@@ -160,6 +166,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 7,
+      "link": "https://www.bajajallianz.com/health-insurance-plans/health-guard.html",
       "name": "Bajaj Allianz Health Guard",
       "insurer": "Bajaj Allianz",
       "type": "Standard",
@@ -186,6 +193,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 8,
+      "link": "https://www.icicilombard.com/health-insurance/complete-health-insurance",
       "name": "ICICI Lombard Complete Health",
       "insurer": "ICICI Lombard",
       "type": "Standard",
@@ -212,6 +220,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 9,
+      "link": "https://www.adityabirlacapital.com/healthinsurance/activ-health-insurance-plan",
       "name": "Aditya Birla Activ One",
       "insurer": "Aditya Birla",
       "type": "Comprehensive",
@@ -238,6 +247,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 10,
+      "link": "https://www.manipalcigna.com/health-insurance/prime-senior",
       "name": "ManipalCigna Prime Senior",
       "insurer": "ManipalCigna",
       "type": "Senior",
@@ -264,6 +274,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 11,
+      "link": "https://www.tataaig.com/health-insurance/critical-illness-insurance",
       "name": "Tata AIG CritiCare",
       "insurer": "Tata AIG",
       "type": "Critical Illness",
@@ -290,6 +301,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 12,
+      "link": "https://licindia.in/lic-s-tech-term-plan",
       "name": "LIC Tech Term",
       "insurer": "LIC",
       "type": "Term Life",
@@ -316,6 +328,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 13,
+      "link": "https://www.nivabupa.com/health-insurance/heartbeat-family-health-insurance.html",
       "name": "Max Bupa Heartbeat",
       "insurer": "Max Bupa",
       "type": "Comprehensive",
@@ -342,6 +355,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 14,
+      "link": "https://www.sbigeneral.in/health-insurance/arogya-premier-policy",
       "name": "SBI General Arogya Premier",
       "insurer": "SBI General",
       "type": "Standard",
@@ -368,6 +382,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 15,
+      "link": "https://www.careinsurance.com/product/care-freedom",
       "name": "Religare Health Care Freedom",
       "insurer": "Care Health (Religare)",
       "type": "Senior",
@@ -396,6 +411,7 @@ INSURANCE_PLANS = [
   # --- NEW: FAMILY FLOATER PLANS ---
   {
       "id": 16,
+      "link": "https://www.starhealth.in/health-insurance/family-health-optima-insurance-plan",
       "name": "Star Family Health Optima",
       "insurer": "Star Health",
       "type": "Comprehensive",
@@ -424,6 +440,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 17,
+      "link": "https://www.hdfcergo.com/health-insurance/optima-restore",
       "name": "HDFC Optima Restore Family",
       "insurer": "HDFC ERGO",
       "type": "Comprehensive",
@@ -452,6 +469,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 18,
+      "link": "https://www.careinsurance.com/product/heart-health-insurance",
       "name": "Care Health Family Heart",
       "insurer": "Care Health",
       "type": "Comprehensive",
@@ -480,6 +498,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 19,
+      "link": "https://www.bajajallianz.com/health-insurance-plans/family-health-insurance.html",
       "name": "Bajaj Allianz Family Floater",
       "insurer": "Bajaj Allianz",
       "type": "Standard",
@@ -508,6 +527,7 @@ INSURANCE_PLANS = [
   },
   {
       "id": 20,
+      "link": "https://www.nivabupa.com/health-insurance/heartbeat-family-health-insurance.html",
       "name": "Niva Bupa Family First",
       "insurer": "Niva Bupa",
       "type": "Comprehensive",
@@ -538,7 +558,7 @@ INSURANCE_PLANS = [
 
 ]
 
-import ast
+import json
 import os
 
 # Load dynamically from data.json in workspace root
@@ -546,26 +566,7 @@ json_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", 
 
 try:
     with open(json_path, "r", encoding="utf-8") as f:
-        file_lines = f.readlines()
-        clean_lines = [line for line in file_lines if not line.strip().startswith("#")]
-        clean_text = "\n".join(clean_lines)
-        
-        # Parse multiple Python-formatted list blocks in data.json using bracket matching
-        bracket_count = 0
-        start_idx = -1
-        appended_plans = []
-        for i, char in enumerate(clean_text):
-            if char == '[':
-                if bracket_count == 0:
-                    start_idx = i
-                bracket_count += 1
-            elif char == ']':
-                bracket_count -= 1
-                if bracket_count == 0 and start_idx != -1:
-                    block_str = clean_text[start_idx:i+1]
-                    block_list = ast.literal_eval(block_str)
-                    appended_plans.extend(block_list)
-                    
-        INSURANCE_PLANS.extend(appended_plans)
+        appended_plans = [p for p in json.load(f) if p.get("id", 0) > 20]
+    INSURANCE_PLANS.extend(appended_plans)
 except Exception as e:
     print(f"[ERROR] Failed to load INSURANCE_PLANS from {json_path}: {e}")

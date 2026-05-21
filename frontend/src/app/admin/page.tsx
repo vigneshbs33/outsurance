@@ -14,7 +14,7 @@ interface MetricCardProps {
   title: string;
   value: string | number;
   label: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
 function MetricCard({ title, value, label, icon: Icon }: MetricCardProps) {
@@ -32,6 +32,13 @@ function MetricCard({ title, value, label, icon: Icon }: MetricCardProps) {
       <p className="font-mono text-[10px] text-neutral-500 uppercase tracking-tight">{label}</p>
     </div>
   );
+}
+
+interface AssessmentSessionRow {
+  hba1c?: number;
+  bmi?: number;
+  bp_systolic?: number;
+  risk_tier?: string;
 }
 
 export default function DedicatedAdminPortal() {
@@ -54,7 +61,7 @@ export default function DedicatedAdminPortal() {
     saved: 0,
   });
 
-  const [supabaseData, setSupabaseData] = useState<any[]>([]);
+  const [supabaseData, setSupabaseData] = useState<AssessmentSessionRow[]>([]);
 
   const [thresholds, setThresholds] = useState({
     low: 0.22,
@@ -75,11 +82,13 @@ export default function DedicatedAdminPortal() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
-    const authSession = sessionStorage.getItem('admin_session');
-    if (authSession === 'active') {
-      setIsAuthenticated(true);
-    }
+    setTimeout(() => {
+      setIsMounted(true);
+      const authSession = sessionStorage.getItem('admin_session');
+      if (authSession === 'active') {
+        setIsAuthenticated(true);
+      }
+    }, 0);
   }, []);
 
   function handlePasscodeSubmit(e: React.FormEvent) {
@@ -138,7 +147,7 @@ export default function DedicatedAdminPortal() {
         });
 
         if (sessionRows) {
-          setSupabaseData(sessionRows);
+          setSupabaseData(sessionRows as unknown as AssessmentSessionRow[]);
         }
       } catch (err) {
         console.error(err);
@@ -419,7 +428,7 @@ export default function DedicatedAdminPortal() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
+                  onClick={() => setActiveTab(item.id as 'overview' | 'epidemiology' | 'telemetry' | 'tuner' | 'catalog' | 'agent' | 'compliance' | 'logs')}
                   className={`flex w-full items-center gap-3.5 px-4 py-3 font-mono text-[11px] uppercase tracking-wider transition-all border cursor-pointer ${
                     isSelected 
                       ? 'bg-white text-black border-white font-bold' 
@@ -733,7 +742,7 @@ export default function DedicatedAdminPortal() {
                   <span className="font-mono text-[10px] uppercase text-neutral-500">Filter:</span>
                   <select
                     value={policyFilter}
-                    onChange={(e: any) => setPolicyFilter(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPolicyFilter(e.target.value as 'all' | 'diabetes' | 'hypertension' | 'copay')}
                     className="h-10 px-3 bg-neutral-50 border border-neutral-200 font-mono text-xs outline-none cursor-pointer"
                     style={{ borderRadius: '2px' }}
                   >

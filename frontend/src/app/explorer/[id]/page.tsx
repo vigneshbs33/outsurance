@@ -39,11 +39,11 @@ export default function PlanDetailPage({ params }: PageProps) {
           fetchAllPlans(),
           getLatestRecommendation(user.id)
         ]);
-        const found = allPlans.find((p: Record<string, any>) => p.id === planId);
+        const found = allPlans.find((p: Record<string, unknown>) => (p as { id: number }).id === planId);
         if (found) {
           let mergedPlan = { ...found };
           if (recommendation && recommendation.top_plan_ids) {
-            const recPlan = recommendation.top_plan_ids.find((rp: any) => rp.id === planId);
+            const recPlan = recommendation.top_plan_ids.find((rp: { id: number }) => rp.id === planId);
             if (recPlan) {
               mergedPlan = {
                 ...mergedPlan,
@@ -107,7 +107,7 @@ export default function PlanDetailPage({ params }: PageProps) {
         <main className="flex-1 p-8">
           <div className="max-w-[480px] mx-auto pt-16">
             <AnnotationBox title="💡 Oops!">
-              We couldn't find this policy. Try returning to the plan finder!
+              We couldn&apos;t find this policy. Try returning to the plan finder!
             </AnnotationBox>
             <button onClick={() => router.push('/explorer')} className="mono-btn-primary mt-6">
               Return to Plan Finder
@@ -239,7 +239,7 @@ export default function PlanDetailPage({ params }: PageProps) {
               <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '12px' }}>
                 <span className="font-mono text-[9px] uppercase text-[var(--ink-soft)] block">Partner Hospitals</span>
                 <span className="font-mono text-sm font-bold text-black">
-                  {(plan.hospital_network_count || 9800).toLocaleString('en-IN')}+ Cashless
+                  {plan.hospital_network_count ? `${plan.hospital_network_count.toLocaleString('en-IN')}+ Cashless` : 'N/A'}
                 </span>
               </div>
             </div>
@@ -250,7 +250,7 @@ export default function PlanDetailPage({ params }: PageProps) {
             <div className="border border-neutral-200 p-6 bg-neutral-50 space-y-2 animate-fadeIn" style={{ borderRadius: '12px' }}>
               <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">AI Recommendation Logic</span>
               <p className="font-mono text-xs leading-6 text-neutral-800 italic">
-                "{plan.plain_english_explanation}"
+                &ldquo;{plan.plain_english_explanation}&rdquo;
               </p>
             </div>
           )}

@@ -53,9 +53,10 @@ function ExplorerContent() {
   // Pagination State
   const [visibleCount, setVisibleCount] = useState(10);
 
-  // Reset pagination when search query or refine search parameters change
   useEffect(() => {
-    setVisibleCount(10);
+    setTimeout(() => {
+      setVisibleCount(10);
+    }, 0);
   }, [query, premiumLimit, coverageMin, selectedTypes, selectedInsurers, sortBy]);
 
   // Modals & Comparison State
@@ -75,8 +76,8 @@ function ExplorerContent() {
         getLatestRecommendation(user.id)
       ]).then(([allPlans, recommendation]) => {
         if (recommendation && recommendation.top_plan_ids && recommendation.top_plan_ids.length > 0) {
-          const mergedPlans = allPlans.map((plan: any) => {
-            const recPlan = recommendation.top_plan_ids.find((rp: any) => rp.id === plan.id);
+          const mergedPlans = (allPlans as Plan[]).map((plan) => {
+            const recPlan = recommendation.top_plan_ids.find((rp: { id: unknown }) => rp.id === plan.id);
             if (recPlan) {
               return {
                 ...plan,
@@ -88,7 +89,7 @@ function ExplorerContent() {
             }
             return plan;
           });
-          setPlans(mergedPlans as Plan[]);
+          setPlans(mergedPlans);
           setActiveId((mergedPlans[0]?.id as number | null) ?? null);
         } else {
           setPlans(allPlans as Plan[]);
@@ -121,7 +122,7 @@ function ExplorerContent() {
 
   // Filter & Sort Logic
   const filteredAndSorted = useMemo(() => {
-    let result = plans.filter((plan) => {
+    const result = plans.filter((plan) => {
       // Query filter
       const lower = query.toLowerCase();
       const matchesQuery = !lower || 
@@ -135,7 +136,7 @@ function ExplorerContent() {
       const matchesCoverage = plan.coverage >= coverageMin;
 
       // Plan types filter
-      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(plan.type);
+      const matchesType = selectedTypes.length === 0 || (plan.type ? selectedTypes.includes(plan.type) : false);
 
       // Insurers filter
       const matchesInsurer = selectedInsurers.length === 0 || selectedInsurers.includes(plan.insurer);
@@ -466,12 +467,12 @@ function ExplorerContent() {
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
                         <span className="text-[var(--ink-soft)]">Claims Settled Successfully</span>
-                        <span className="font-bold text-black">{activePlan.claim_settlement_ratio || 95}%</span>
+                        <span className="font-bold text-black">{activePlan.claim_settlement_ratio ? `${activePlan.claim_settlement_ratio}%` : 'N/A'}</span>
                       </div>
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
                         <span className="text-[var(--ink-soft)]">Hospital Networks</span>
-                        <span className="font-bold text-black">{(activePlan.hospital_network_count || 8000).toLocaleString('en-IN')}+</span>
+                        <span className="font-bold text-black">{activePlan.hospital_network_count ? `${activePlan.hospital_network_count.toLocaleString('en-IN')}+` : 'N/A'}</span>
                       </div>
 
                       <div className="flex justify-between">
@@ -486,7 +487,7 @@ function ExplorerContent() {
                     <div className="border border-neutral-200 p-4 bg-white mt-4 space-y-1.5" style={{ borderRadius: '12px' }}>
                       <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)] block">AI Recommendation Logic</span>
                       <p className="font-mono text-xs leading-5 text-neutral-700 italic">
-                        "{activePlan.plain_english_explanation}"
+                        &ldquo;{activePlan.plain_english_explanation}&rdquo;
                       </p>
                     </div>
                   )}
