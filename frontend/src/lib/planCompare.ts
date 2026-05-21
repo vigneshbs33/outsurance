@@ -101,8 +101,11 @@ export function buildTopThreeExplanation(plans: Plan[]): string {
     .join('\n\n');
 }
 
+/** @deprecated Use detectInsurerPlanRequest from agentIntelligence for chat. */
 export function detectInsurerFilter(text: string): string | null {
   const lower = text.toLowerCase();
+  if (/\b(why|how|what|explain)\b/.test(lower) && /\b(knn|score|similarity)\b/.test(lower)) return null;
+  if (!/\b(best|top|show|recommend|compare|which|find|give)\b/.test(lower)) return null;
   const map: [RegExp, string][] = [
     [/hdfc|ergo/, 'HDFC ERGO'],
     [/star health/, 'Star Health'],
@@ -111,7 +114,7 @@ export function detectInsurerFilter(text: string): string | null {
     [/icici/, 'ICICI Lombard'],
     [/bajaj/, 'Bajaj Allianz'],
     [/aditya birla/, 'Aditya Birla'],
-    [/max bupa|niva bupa/, 'Max Bupa'],
+    [/max bupa/, 'Max Bupa'],
     [/lic/, 'LIC'],
     [/tata aig/, 'Tata AIG'],
     [/sbi/, 'SBI General'],

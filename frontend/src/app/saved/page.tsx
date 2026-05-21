@@ -46,7 +46,7 @@ function SavedContent() {
   return (
     <div className="min-h-screen bg-white lg:flex">
       <Sidebar />
-      <main className="flex-1 px-4 sm:px-8 py-8 lg:px-12">
+      <main className="flex-1 min-h-0 px-4 sm:px-8 py-8 lg:h-screen lg:overflow-y-auto lg:px-12">
         <div className="mx-auto max-w-[1100px]">
           <header className="mb-10 border-b border-neutral-200 pb-8">
             <SectionEyebrow>Saved Plans</SectionEyebrow>

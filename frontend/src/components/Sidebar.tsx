@@ -60,7 +60,7 @@ export default function Sidebar() {
   return (
     <>
       {/* 1. Desktop Left Sidebar */}
-      <aside className="hidden min-h-screen w-[290px] flex-col justify-between border-r border-neutral-200 bg-white px-8 py-8 lg:flex shrink-0">
+      <aside className="hidden w-[290px] shrink-0 flex-col justify-between border-r border-neutral-200 bg-white px-8 py-8 lg:sticky lg:top-0 lg:flex lg:h-screen lg:max-h-screen lg:overflow-y-auto">
         <div className="space-y-10">
           <div
             className="flex items-center gap-1 select-none cursor-pointer pb-6 border-b border-neutral-100"

@@ -43,5 +43,6 @@
   "thyroid disorder": 0.31,
   "disk bulge": 0.56,
   "spine issue": 0.31,
-  "knee pain": 0.31
+  "knee pain": 0.31,
+  "other disease": 0.56
 }

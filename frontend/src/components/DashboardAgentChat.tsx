@@ -8,12 +8,22 @@ import remarkGfm from 'remark-gfm';
 import { callAgent } from '../lib/api';
 import {
   buildComparisonTable,
-  detectInsurerFilter,
   enrichPlansForSession,
   formatSimilarityScore,
   isNextThreeRequest,
   rankPlansBySimilarity,
 } from '../lib/planCompare';
+import {
+  actionsForMessage,
+  answerScoringQuestion,
+  buildPlatformContextPayload,
+  defaultActions,
+  detectInsurerPlanRequest,
+  isExplanatoryQuestion,
+  isScoringQuestion,
+  isTableRequest,
+  type ChatAction,
+} from '../lib/agentIntelligence';
 import { buildForumUrl, isReviewsNavigationRequest } from '../lib/reviews';
 import { loadAgentChatState, saveAgentChatState, type StoredChatMessage } from '../lib/agentChatStorage';
 import { supabase } from '../lib/supabase';
@@ -28,6 +38,7 @@ type ChatMessage = {
   toolUsed?: string;
   comparePlans?: Plan[];
   comparisonTable?: Record<string, Record<string, string>>;
+  actions?: ChatAction[];
 };
 
 export interface DashboardAgentChatProps {
@@ -137,29 +148,63 @@ export function DashboardAgentChat({
         feature_importance_explanation: riskState.featureImportance,
         condition_detail: riskState.conditionDetail,
       },
-      current_plans: enrichPlansForSession(plans.slice(0, 25)),
+      platform_context: buildPlatformContextPayload(plans, vitals, {
+        tier: riskState.tier,
+        score: riskState.score,
+      }),
+      current_plans: enrichPlansForSession(plans.slice(0, 50)),
     }),
     [vitals, medicalHistory, riskState]
   );
 
-  const pushCompareMessage = useCallback((slice: Plan[], intro: string, messageId?: string) => {
-    if (slice.length < 2) return;
-    const table = buildComparisonTable(slice);
-    setMessages((prev) => {
-      if (messageId && prev.some((m) => m.id === messageId)) return prev;
-      return [
+  const pushAssistantMessage = useCallback(
+    (msg: Omit<ChatMessage, 'id' | 'role'> & { id?: string }) => {
+      setMessages((prev) => [
         ...prev,
         {
-          id: messageId ?? `cmp-${Date.now()}`,
+          id: msg.id ?? `a-${Date.now()}`,
           role: 'assistant',
-          content: intro.trim(),
-          toolUsed: 'compare',
-          comparePlans: slice,
-          comparisonTable: table,
+          ...msg,
+          actions: msg.actions ?? actionsForMessage(msg.toolUsed, !!msg.comparePlans),
         },
-      ];
-    });
-  }, []);
+      ]);
+    },
+    []
+  );
+
+  const pushCompareMessage = useCallback(
+    (slice: Plan[], intro: string, messageId?: string) => {
+      if (slice.length < 2) return;
+      const table = buildComparisonTable(slice);
+      setMessages((prev) => {
+        if (messageId && prev.some((m) => m.id === messageId)) return prev;
+        return [
+          ...prev,
+          {
+            id: messageId ?? `cmp-${Date.now()}`,
+            role: 'assistant',
+            content: intro.trim(),
+            toolUsed: 'compare',
+            comparePlans: slice,
+            comparisonTable: table,
+            actions: actionsForMessage('compare', true),
+          },
+        ];
+      });
+    },
+    []
+  );
+
+  const runAction = useCallback(
+    (action: ChatAction) => {
+      if (action.id === 'explorer') {
+        router.push('/explorer');
+        return;
+      }
+      if (action.prompt) setInput(action.prompt);
+    },
+    [router]
+  );
 
   useEffect(() => {
     setRankedList(rankedPlans);
@@ -219,17 +264,39 @@ export function DashboardAgentChat({
     try {
       if (isReviewsNavigationRequest(text)) {
         navigateToTopPlanReviews();
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `a-${Date.now()}`,
-            role: 'assistant',
-            content:
-              top3Plans.length >= 1
-                ? `Opening the **Review Forum** with customer reviews for your top ${top3Plans.length} recommended plan${top3Plans.length > 1 ? 's' : ''}: **${top3Plans.map((p) => p.name).join('**, **')}**.`
-                : 'Complete an assessment first so I can show reviews for your recommended plans.',
-          },
-        ]);
+        pushAssistantMessage({
+          content:
+            top3Plans.length >= 1
+              ? `Opening the **Review Forum** with customer reviews for your top ${top3Plans.length} recommended plan${top3Plans.length > 1 ? 's' : ''}: **${top3Plans.map((p) => p.name).join('**, **')}**.`
+              : 'Complete an assessment first so I can show reviews for your recommended plans.',
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (isScoringQuestion(text) || (isExplanatoryQuestion(text) && !isTableRequest(text))) {
+        const answered = answerScoringQuestion(text, rankedList, vitals);
+        pushAssistantMessage({
+          content: answered.content,
+          toolUsed: 'explain_scoring',
+          comparePlans: answered.tablePlans,
+          comparisonTable: answered.comparisonTable,
+          actions: answered.actions,
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (isTableRequest(text)) {
+        const slice = rankPlansBySimilarity(rankedList).slice(0, 3);
+        if (slice.length >= 2) {
+          pushCompareMessage(slice, 'Here is a **comparison table** from your scored plan data (not generated text):');
+        } else {
+          pushAssistantMessage({
+            content: 'I need at least two scored plans. Complete assessment or refresh the dashboard to load full catalogue scores.',
+            actions: defaultActions(),
+          });
+        }
         setLoading(false);
         return;
       }
@@ -238,14 +305,10 @@ export function DashboardAgentChat({
         const nextOffset = compareOffset + 3;
         const slice = rankedList.slice(nextOffset, nextOffset + 3);
         if (slice.length < 2) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `a-${Date.now()}`,
-              role: 'assistant',
-              content: 'No more distinct plan groups to compare. Try adjusting your budget or adding a health condition for a fresh ML run.',
-            },
-          ]);
+          pushAssistantMessage({
+            content:
+              'No more distinct plan groups to compare. Try adjusting your budget or adding a health condition for a fresh ML run.',
+          });
         } else {
           setCompareOffset(nextOffset);
           pushCompareMessage(slice, 'Here are the **next 3 plans** by similarity score:');
@@ -254,7 +317,7 @@ export function DashboardAgentChat({
         return;
       }
 
-      const insurer = detectInsurerFilter(text);
+      const insurer = detectInsurerPlanRequest(text);
       if (insurer) {
         const needle = insurer.toLowerCase();
         const filtered = rankPlansBySimilarity(
@@ -266,23 +329,17 @@ export function DashboardAgentChat({
         );
         const slice = filtered.slice(0, 3);
         if (slice.length < 1) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `a-${Date.now()}`,
-              role: 'assistant',
-              content: `I could not find plans from ${insurer} in your ranked list.`,
-            },
-          ]);
+          pushAssistantMessage({
+            content: `I could not find plans from ${insurer} in your ranked list.`,
+          });
         } else if (slice.length === 1) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `a-${Date.now()}`,
-              role: 'assistant',
-              content: `Best match from **${insurer}**: **${slice[0].name}** (similarity ${formatSimilarityScore(slice[0])}, match ${(slice[0].suitability_score ?? 0).toFixed(1)}/10). ${slice[0].plain_english_explanation ?? ''}`,
-            },
-          ]);
+          pushAssistantMessage({
+            content: `Best match from **${insurer}**: **${slice[0].name}** (similarity ${formatSimilarityScore(slice[0])}, match ${(slice[0].suitability_score ?? 0).toFixed(1)}/10). ${slice[0].plain_english_explanation ?? ''}`,
+            actions: [
+              { id: 'why-knn', label: `Why this KNN score?`, prompt: `Why is KNN ${formatSimilarityScore(slice[0])} for ${slice[0].name}?` },
+              ...defaultActions().filter((a) => a.id !== 'table-top3'),
+            ],
+          });
         } else {
           pushCompareMessage(slice, `Top plans from **${insurer}** for your profile:`);
         }
@@ -339,20 +396,47 @@ export function DashboardAgentChat({
         const pid = res.tool_result.plan_id as number;
         const plan = rankedList.find((p) => p.id === pid);
         if (plan) setStressPlan(plan);
-        setMessages((prev) => [
-          ...prev,
-          { id: `a-${Date.now()}`, role: 'assistant', content: res.response, toolUsed: 'stress_test' },
-        ]);
+        pushAssistantMessage({ content: res.response, toolUsed: 'stress_test' });
+      } else if (res.tool_used === 'explain_scoring') {
+        const answered = answerScoringQuestion(text, rankedList, vitals);
+        const llmBit = res.response?.trim();
+        const content = llmBit && !llmBit.toLowerCase().includes('plan 1')
+          ? `${llmBit}\n\n---\n\n${answered.content}`
+          : answered.content;
+        pushAssistantMessage({
+          content,
+          toolUsed: 'explain_scoring',
+          comparePlans: answered.tablePlans,
+          comparisonTable: answered.comparisonTable,
+          actions: answered.actions,
+        });
+      } else if (res.tool_used === 'explain_risk') {
+        pushAssistantMessage({
+          content: res.response || res.tool_error || 'Could not explain risk.',
+          toolUsed: 'explain_risk',
+          actions: [
+            { id: 'knn', label: 'Explain KNN scoring', prompt: 'How does KNN similarity work?' },
+            ...defaultActions().slice(0, 3),
+          ],
+        });
+      } else if (isExplanatoryQuestion(text)) {
+        pushAssistantMessage({
+          content: res.response || res.tool_error || 'I could not answer that.',
+          toolUsed: res.tool_used,
+          actions: defaultActions(),
+        });
       } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `a-${Date.now()}`,
-            role: 'assistant',
-            content: res.response || res.tool_error || 'I could not process that request.',
-            toolUsed: res.tool_used,
-          },
-        ]);
+        let content = res.response || res.tool_error || 'I could not process that request.';
+        if (/\|.+\|/.test(content) && content.split('\n').filter((l: string) => l.includes('|')).length > 2) {
+          content =
+            content.split('\n').filter((l: string) => !l.trim().startsWith('|')).join('\n').trim() +
+            '\n\n_Use **Show top 3 table** below for a real data table from your plan store._';
+        }
+        pushAssistantMessage({
+          content,
+          toolUsed: res.tool_used,
+          actions: defaultActions(),
+        });
       }
     } catch {
       setMessages((prev) => [
@@ -424,6 +508,21 @@ export function DashboardAgentChat({
                   <CompareInlineTable plans={msg.comparePlans} comparisonTable={msg.comparisonTable} />
                 </div>
               )}
+              {msg.role === 'assistant' && msg.actions && msg.actions.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-neutral-100 flex flex-wrap gap-1.5">
+                  {msg.actions.map((action) => (
+                    <button
+                      key={`${msg.id}-${action.id}`}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => runAction(action)}
+                      className="text-[10px] font-semibold px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50/80 text-emerald-800 hover:bg-emerald-100 transition-colors"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -483,7 +582,7 @@ export function DashboardAgentChat({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
-            placeholder="Ask about plans, conditions, budget, or say 'next 3 best'…"
+            placeholder="Ask why a KNN score is 0, compare plans, stress test, budget…"
             className="flex-1 h-11 px-4 border border-neutral-200 rounded-xl text-sm outline-none focus:border-emerald-400 disabled:opacity-50"
           />
           <button

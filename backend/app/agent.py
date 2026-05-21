@@ -40,6 +40,16 @@ from .stress_test import simulate
 #  Higher priority wins when multiple intents match.
 
 _INTENT_RULES: List[Tuple[str, List[str], int]] = [
+    ("explain_scoring", [
+        r"\bwhy\b.*\b(knn|similarity|score|0|zero)",
+        r"\bhow\b.*\b(knn|similarity|cosine|scoring|rank)",
+        r"\bwhat\b.*\b(knn|similarity|cosine|match score)",
+        r"explain.*\b(knn|similarity|suitability|match score|scoring)",
+        r"\b(knn|similarity).*\b(0|zero|low|mean|work)",
+        r"why did you give",
+        r"platform.*\b(score|context)",
+    ], 11),
+
     ("reassess", [
         r"re[-\s]?assess", r"re[-\s]?run", r"re[-\s]?calculat",
         r"what if (i also|i had|my|i have|we add)",
@@ -130,7 +140,8 @@ def _classify_intent(message: str, llm_generate: Optional[Callable] = None) -> O
         sys_prompt = (
             "You are an intent classifier for a health insurance assistant.\n"
             "Classify the user's latest query into exactly one of these categories:\n"
-            "'reassess', 'budget_sim', 'stress_test', 'compare', 'explain_risk', 'plan_info', 'general_chat'.\n\n"
+            "'reassess', 'budget_sim', 'stress_test', 'compare', 'explain_risk', 'plan_info', "
+            "'explain_scoring', 'general_chat'.\n\n"
             "Examples:\n"
             "Query: I had a heart attack\n"
             "Category: reassess\n\n"
@@ -157,7 +168,10 @@ def _classify_intent(message: str, llm_generate: Optional[Callable] = None) -> O
         try:
             response = llm_generate(sys_prompt, f"Query: {message}\nCategory:", max_tokens=10).strip().lower()
             response = response.replace("`", "").replace("'", "").replace('"', "").replace(".", "").strip()
-            valid = {'reassess', 'budget_sim', 'stress_test', 'compare', 'explain_risk', 'plan_info', 'general_chat'}
+            valid = {
+                'reassess', 'budget_sim', 'stress_test', 'compare',
+                'explain_risk', 'plan_info', 'explain_scoring', 'general_chat',
+            }
             if response in valid:
                 return response
         except Exception as e:
@@ -636,7 +650,18 @@ def _tool_plan_info(plan_id: int, current_plans: List[Dict]) -> Dict:
 
 # ─── Context Builders ───────────────────────────────────────────────────────
 
-def _build_session_context(profile: Dict, risk_data: Dict, current_plans: List[Dict]) -> str:
+def _plan_score_summary(plan: Dict) -> str:
+    bd = plan.get('suitability_breakdown') or {}
+    knn = plan.get('cosine_similarity') or bd.get('cosine_similarity') or 0
+    if knn and knn <= 1:
+        knn = round(float(knn) * 10, 1)
+    return (
+        f"{plan.get('name')} ({plan.get('insurer')}): "
+        f"match={plan.get('suitability_score', 0)}/10, KNN={knn}/10"
+    )
+
+
+def _build_session_context(profile: Dict, risk_data: Dict, current_plans: List[Dict], platform_context: Optional[Dict] = None) -> str:
     parts = []
     if profile:
         parts.append(
@@ -648,10 +673,70 @@ def _build_session_context(profile: Dict, risk_data: Dict, current_plans: List[D
     if risk_data:
         parts.append(f"Risk tier: {risk_data.get('risk_tier', 'Unknown')} "
                      f"({risk_data.get('confidence_pct', 0)}% confidence)")
-    if current_plans:
-        plan_names = [p['name'] for p in current_plans[:3]]
-        parts.append(f"Top plans: {', '.join(plan_names)}")
+    if platform_context:
+        parts.append(f"Platform: {platform_context.get('scoring_pipeline', '')}")
+        parts.append(
+            f"Catalogue: {platform_context.get('catalogue_size', '?')} plans, "
+            f"{platform_context.get('plans_with_ml_scores', '?')} scored"
+        )
+        for row in (platform_context.get('top_plans') or [])[:8]:
+            parts.append(
+                f"#{row.get('rank')} {row.get('name')}: KNN {row.get('knn_similarity')}/10, "
+                f"match {row.get('match_score')}/10, has_ml={row.get('has_ml_score')}"
+            )
+    elif current_plans:
+        sorted_plans = sorted(current_plans, key=lambda p: p.get('suitability_score', 0), reverse=True)
+        parts.append("Top scored plans: " + "; ".join(_plan_score_summary(p) for p in sorted_plans[:5]))
     return ". ".join(parts) + "." if parts else ""
+
+
+def _tool_explain_scoring(current_plans: List[Dict], platform_context: Optional[Dict], message: str) -> Dict:
+    """Structured scoring explanation from real session data — no invented numbers."""
+    sorted_plans = sorted(current_plans or [], key=lambda p: p.get('suitability_score', 0), reverse=True)
+    zero_knn = []
+    scored = []
+    for p in sorted_plans:
+        bd = p.get('suitability_breakdown') or {}
+        knn = p.get('cosine_similarity') or bd.get('cosine_similarity') or 0
+        if knn and knn <= 1:
+            knn = round(float(knn) * 10, 1)
+        row = {
+            'id': p.get('id'),
+            'name': p.get('name'),
+            'insurer': p.get('insurer'),
+            'knn': knn,
+            'match': p.get('suitability_score', 0),
+            'breakdown': bd,
+        }
+        if knn > 0:
+            scored.append(row)
+        else:
+            zero_knn.append(row)
+
+    msg_lower = message.lower()
+    insurer_rows = scored
+    zero_ins: List[Dict] = []
+    for token in ('icici', 'hdfc', 'star', 'niva', 'care', 'bajaj'):
+        if token in msg_lower:
+            insurer_rows = [r for r in scored if token in (r.get('insurer') or '').lower()]
+            zero_ins = [r for r in zero_knn if token in (r.get('insurer') or '').lower()]
+            break
+
+    return {
+        'methodology': (
+            'Stage 1: XGBoost risk tier. Stage 2: suitability (budget, conditions, age, coverage). '
+            'Stage 3: cosine similarity vs plan ideal_vector. Combined = 60% suitability + 40% KNN.'
+        ),
+        'catalogue_scored': len(scored),
+        'catalogue_zero_knn': len(zero_knn),
+        'insurer_scored': insurer_rows[:6],
+        'insurer_missing_scores': zero_ins[:6],
+        'platform_context': platform_context,
+        'answer_hint': (
+            'KNN 0 usually means the plan was not in the last top-5 recommendation blob — '
+            'not that similarity is literally zero. Full catalogue scoring fixes this.'
+        ),
+    }
 
 
 def _build_tool_context(tool_used: Optional[str], tool_result: Optional[Dict]) -> str:
@@ -698,6 +783,18 @@ def _build_tool_context(tool_used: Optional[str], tool_result: Optional[Dict]) -
                 f"₹{p.get('coverage', 0) // 100000}L coverage, "
                 f"type: {p.get('type')}.")
 
+    if tool_used == "explain_scoring":
+        scored = tool_result.get('insurer_scored') or []
+        if scored:
+            lines = [f"{r['name']}: KNN {r['knn']}/10, match {r['match']}/10" for r in scored]
+            return f"Scoring explanation. {tool_result.get('methodology')} Insurer data: {'; '.join(lines)}."
+        return (
+            f"{tool_result.get('methodology')} "
+            f"{tool_result.get('catalogue_scored', 0)} plans scored, "
+            f"{tool_result.get('catalogue_zero_knn', 0)} show KNN 0 (missing score). "
+            f"{tool_result.get('answer_hint', '')}"
+        )
+
     return ""
 
 
@@ -735,6 +832,7 @@ def run_agent(
     profile = dict(session.get('profile') or {})
     risk_data = dict(session.get('risk_data') or {})
     current_plans: List[Dict] = list(session.get('current_plans') or [])
+    platform_context: Optional[Dict] = session.get('platform_context')
     updated_session = dict(session)
 
     intent = _classify_intent(latest, llm_generate)
@@ -791,9 +889,13 @@ def run_agent(
             tool_result = _tool_plan_info(plan_id, current_plans)
             tool_used = "plan_info"
 
+    elif intent == "explain_scoring":
+        tool_result = _tool_explain_scoring(current_plans, platform_context, latest)
+        tool_used = "explain_scoring"
+
     # ── RESPONSE GENERATION via Gemma ───────────────────────────────────────
 
-    session_ctx  = _build_session_context(profile, risk_data, current_plans)
+    session_ctx  = _build_session_context(profile, risk_data, current_plans, platform_context)
     tool_ctx     = _build_tool_context(tool_used, tool_result)
 
     # Build a short conversation history for context (last 4 turns)
@@ -803,23 +905,33 @@ def run_agent(
         history_lines.append(f"{role}: {msg.get('content', '')}")
     history = "\n".join(history_lines)
 
+    is_question = bool(re.search(
+        r'\b(why|how|what|explain|meaning|understand)\b', latest.lower()
+    ))
+
     sys_prompt = (
-        "You are Outsurance's AI insurance advisor. You have access to the user's health profile, "
-        "risk assessment, and recommended insurance plans. "
-        "Respond in 2-3 sentences. Be warm, specific, and jargon-free. "
-        "When a tool result is available, summarise it clearly for the user. "
-        "Never make up plan details — only reference what is in the context."
+        "You are Outsurance's AI insurance advisor with full platform context (profile, risk tier, "
+        "KNN scores, suitability breakdowns). "
+        "RULES: (1) Answer the user's exact question first. "
+        "(2) Do NOT recommend or list insurance plans unless they explicitly asked for plans. "
+        "(3) Never invent tables, scores, or plan names — use ONLY PLATFORM_CONTEXT numbers. "
+        "(4) Do not output markdown tables — describe data in prose; the UI renders real tables. "
+        "(5) If KNN is 0, explain it usually means missing score data, not a bad match. "
+        "Keep answers to 3-5 clear sentences."
     )
 
     user_prompt = (
-        f"{session_ctx}\n"
-        f"{'Tool executed — ' + tool_ctx if tool_ctx else ''}\n"
-        f"Conversation so far:\n{history}\n"
-        f"User: {latest}\nAdvisor:"
+        f"PLATFORM_CONTEXT:\n{session_ctx}\n"
+        f"{'TOOL_RESULT: ' + tool_ctx if tool_ctx else ''}\n"
+        f"Conversation:\n{history}\n"
+        f"User question: {latest}\n"
+        f"{'[This is an explanatory question — answer it directly, do not push plans.]' if is_question else ''}\n"
+        f"Advisor:"
     )
 
     try:
-        response = llm_generate(sys_prompt, user_prompt, max_tokens=150)
+        max_tok = 280 if (is_question or tool_used == 'explain_scoring') else 150
+        response = llm_generate(sys_prompt, user_prompt, max_tokens=max_tok)
     except Exception as e:
         print(f"[WARN] agent LLM generation failed: {e}")
         # Graceful fallback: use tool context if available

@@ -100,7 +100,7 @@ function ForumContent() {
   return (
     <div className="min-h-screen bg-[#f4f6f8] lg:flex">
       <Sidebar />
-      <main className="flex-1 flex flex-col min-h-screen">
+      <main className="flex-1 flex flex-col min-h-0 lg:h-screen lg:overflow-y-auto">
         <header className="bg-white border-b border-neutral-100 px-4 sm:px-6 py-4 sticky top-0 z-30 shadow-sm">
           <div className="max-w-[1100px] mx-auto">
             <div className="flex items-start justify-between gap-4 flex-wrap">

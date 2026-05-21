@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronUp, Heart, Play, Percent } from 'lucide-react';
+import { ChevronDown, ChevronUp, Heart, Percent } from 'lucide-react';
 import type { Plan } from './StressTestModal';
 import { formatSimilarityScore, getPlanCosineSimilarity } from '../lib/planCompare';
 import { getCriticalDrawbacks } from '../lib/planCriticalPoints';
@@ -90,13 +90,7 @@ function InsurerBadge({
     <div
       className={`w-[140px] shrink-0 self-start bg-white border-2 ${borderClass} rounded-2xl px-3 py-4 flex flex-col items-center justify-center gap-2 shadow-[0_2px_12px_rgba(0,0,0,0.06)] min-h-[7.5rem]`}
     >
-      <div className="h-12 w-full flex items-center justify-center px-1">{logoInner}</div>
-      <button
-        type="button"
-        className="text-[10px] font-semibold text-[#0078fd] hover:underline"
-      >
-        About Insurer &rsaquo;
-      </button>
+      <div className="h-14 w-full flex items-center justify-center px-1">{logoInner}</div>
     </div>
   );
 }
@@ -358,14 +352,6 @@ export function PlanCard({
                 className="font-bold text-[#0078fd] hover:underline cursor-pointer"
               >
                 View all features &rsaquo;
-              </button>
-              <span className="text-[#9ec5be]">|</span>
-              <button
-                type="button"
-                className="font-semibold text-neutral-600 hover:text-neutral-800 cursor-pointer flex items-center gap-1"
-              >
-                <Play size={11} className="text-emerald-600 fill-emerald-600" />
-                Watch plan video
               </button>
               <span className="text-[#9ec5be]">|</span>
               <button

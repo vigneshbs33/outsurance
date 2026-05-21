@@ -946,6 +946,7 @@ function AssessmentPageContent() {
                     setLanguage(lang.code);
                     const loc = intakeToLocale(lang.code);
                     setLocale(loc);
+                    triggerGTranslate(loc);
                     setStep(2);
                   }}
                   className={`p-4 rounded-xl border text-left transition-all ${
