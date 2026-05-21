@@ -9,7 +9,7 @@ import { useCompare } from '../../lib/compare';
 import StressTestModal, { Plan } from '../../components/StressTestModal';
 import CompareDrawer from '../../components/CompareDrawer';
 import { FilterPlansModal, FilterState } from '../../components/FilterPlansModal';
-import { Bot, ChevronDown, ChevronUp, Heart, Send, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp, Heart, Send, SlidersHorizontal, Sparkles, Activity } from 'lucide-react';
 import {
   SortByOption, CoverOption, RoomRentOption, PolicyBenefitOption,
   ExistingDiseaseWaitOption, PremiumOption, PortabilityOption,
@@ -59,9 +59,174 @@ function getPlanFeatures(plan: Plan): string[] {
   return features;
 }
 
+// ─── Risk Profile Card ───────────────────────────────────────────────────────
+
+type ConditionEvent = { name: string; weight: number; resolved: boolean; justification?: string };
+type ConditionDetail = { events: ConditionEvent[]; total_condition_risk_score: number; dominant_condition: string | null; risk_summary: string };
+type FeatureImportance = Record<string, number>;
+
+function conditionColor(weight: number): string {
+  if (weight <= 0.30) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+  if (weight <= 0.55) return 'bg-amber-100 text-amber-800 border-amber-200';
+  if (weight <= 0.75) return 'bg-orange-100 text-orange-800 border-orange-200';
+  return 'bg-red-100 text-red-800 border-red-200';
+}
+
+function conditionDot(weight: number): string {
+  if (weight <= 0.30) return 'bg-emerald-500';
+  if (weight <= 0.55) return 'bg-amber-500';
+  if (weight <= 0.75) return 'bg-orange-500';
+  return 'bg-red-500';
+}
+
+function tierStyle(tier: string): { badge: string; bar: string; label: string } {
+  const t = tier?.toUpperCase();
+  if (t === 'LOW')      return { badge: 'bg-emerald-100 text-emerald-800 border-emerald-300', bar: 'bg-emerald-500', label: 'Low Risk' };
+  if (t === 'MEDIUM')   return { badge: 'bg-amber-100 text-amber-800 border-amber-300',   bar: 'bg-amber-500',   label: 'Medium Risk' };
+  if (t === 'HIGH')     return { badge: 'bg-orange-100 text-orange-800 border-orange-300', bar: 'bg-orange-500',  label: 'High Risk' };
+  if (t === 'CRITICAL') return { badge: 'bg-red-100 text-red-800 border-red-300',          bar: 'bg-red-500',     label: 'Critical Risk' };
+  return { badge: 'bg-neutral-100 text-neutral-700 border-neutral-300', bar: 'bg-neutral-400', label: tier };
+}
+
+interface RiskProfileCardProps {
+  riskTier: string;
+  riskScore: number;
+  conditionDetail: ConditionDetail | null;
+  featureImportance: FeatureImportance | null;
+}
+
+function RiskProfileCard({ riskTier, riskScore, conditionDetail, featureImportance }: RiskProfileCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const ts = tierStyle(riskTier);
+  const pct = Math.round(riskScore * 100);
+
+  return (
+    <div className="bg-white/90 backdrop-blur-sm border border-neutral-200/80 rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] overflow-hidden">
+      {/* Header row */}
+      <div className="flex items-center justify-between gap-4 px-5 py-4">
+        <div className="flex items-center gap-3 min-w-0 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0">
+            <Activity size={15} className="text-emerald-600" />
+            <span className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Your Risk Profile</span>
+          </div>
+          <span className={`text-[11px] font-black px-2.5 py-0.5 rounded-full border ${ts.badge}`}>
+            {ts.label.toUpperCase()}
+          </span>
+          {/* Score bar */}
+          <div className="flex items-center gap-2">
+            <div className="w-24 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${ts.bar}`} style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-xs font-bold text-neutral-700">{pct}/100</span>
+          </div>
+          {/* Condition chips */}
+          {conditionDetail?.events?.map((ev) => (
+            <span key={ev.name} className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${conditionColor(ev.weight)}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${conditionDot(ev.weight)}`} />
+              {ev.name} ({ev.weight.toFixed(2)})
+            </span>
+          ))}
+          {conditionDetail?.risk_summary && (
+            <span className="text-[11px] text-neutral-500 italic hidden md:block truncate max-w-[260px]">
+              &ldquo;{conditionDetail.risk_summary}&rdquo;
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 transition-colors cursor-pointer"
+        >
+          Why? {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+      </div>
+
+      {/* Expanded: feature importance + condition events */}
+      {expanded && (
+        <div className="border-t border-neutral-100 px-5 py-4 grid md:grid-cols-2 gap-6 bg-neutral-50/60">
+          {/* Feature importance bars */}
+          {featureImportance && Object.keys(featureImportance).length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-3">Why this risk tier?</p>
+              <div className="space-y-2">
+                {Object.entries(featureImportance)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 6)
+                  .map(([feat, val]) => (
+                    <div key={feat} className="space-y-0.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] text-neutral-600 font-medium">{feat}</span>
+                        <span className="text-[10px] font-bold text-neutral-500">{(val * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500 rounded-full transition-all"
+                          style={{ width: `${Math.min(100, val * 100 / 0.30)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Condition events detail */}
+          {conditionDetail?.events && conditionDetail.events.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-3">Condition Analysis</p>
+              <div className="space-y-2">
+                {conditionDetail.events.map((ev) => (
+                  <div key={ev.name} className="flex items-start gap-3">
+                    <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${conditionDot(ev.weight)}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-neutral-800 capitalize">{ev.name}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${conditionColor(ev.weight)}`}>
+                          risk weight {ev.weight.toFixed(2)}
+                        </span>
+                        {ev.resolved && <span className="text-[9px] text-emerald-600 font-semibold">resolved</span>}
+                      </div>
+                      {ev.justification && (
+                        <p className="text-[10px] text-neutral-500 mt-0.5 leading-snug">{ev.justification}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {conditionDetail.total_condition_risk_score > 0 && (
+                <div className="mt-3 pt-3 border-t border-neutral-200">
+                  <div className="flex justify-between text-[10px] text-neutral-500">
+                    <span>Total Condition Risk Score</span>
+                    <span className="font-bold text-neutral-700">{conditionDetail.total_condition_risk_score.toFixed(2)} / 5.0</span>
+                  </div>
+                  <div className="mt-1 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-orange-500 rounded-full"
+                      style={{ width: `${Math.min(100, (conditionDetail.total_condition_risk_score / 5) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Plan Card ───────────────────────────────────────────────────────────────
+type SuitabilityBreakdown = {
+  budget_fit: number;
+  condition_match: number;
+  risk_alignment: number;
+  age_eligibility: number;
+  coverage_adequacy: number;
+  family_fit: number;
+  cosine_similarity: number;
+};
+
 interface PlanCardProps {
-  plan: Plan;
+  plan: Plan & { suitability_breakdown?: SuitabilityBreakdown };
   isCompared: boolean;
   payYearly: boolean;
   onToggleCompare: (id: number) => void;
@@ -168,6 +333,36 @@ export function PlanCard({ plan, isCompared, payYearly, onToggleCompare, onStres
                   <p className="text-[11px] text-[#0d3c94] leading-relaxed">
                     <span className="font-bold">✦ AI: </span>{plan.plain_english_explanation}
                   </p>
+                </div>
+              )}
+
+              {/* Suitability breakdown (expanded) */}
+              {expanded && plan.suitability_breakdown && (
+                <div className="mt-3 pt-3 border-t border-neutral-100">
+                  <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Score Breakdown</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    {([
+                      ['Budget Fit', plan.suitability_breakdown.budget_fit],
+                      ['Condition Match', plan.suitability_breakdown.condition_match],
+                      ['Risk Alignment', plan.suitability_breakdown.risk_alignment],
+                      ['Coverage', plan.suitability_breakdown.coverage_adequacy],
+                      ['Family Fit', plan.suitability_breakdown.family_fit],
+                      ['KNN Similarity', plan.suitability_breakdown.cosine_similarity],
+                    ] as [string, number][]).map(([label, val]) => (
+                      <div key={label}>
+                        <div className="flex justify-between items-center mb-0.5">
+                          <span className="text-[10px] text-neutral-500">{label}</span>
+                          <span className="text-[10px] font-bold text-neutral-700">{val.toFixed(1)}/10</span>
+                        </div>
+                        <div className="h-1 bg-neutral-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${val >= 8 ? 'bg-emerald-500' : val >= 5 ? 'bg-amber-400' : 'bg-red-400'}`}
+                            style={{ width: `${val * 10}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -309,6 +504,10 @@ function DashboardContent() {
   ]);
   const [activeGroupId, setActiveGroupId] = useState('group_1');
   const [vitals, setVitals] = useState<Record<string, unknown> | null>(null);
+  const [riskTier, setRiskTier] = useState<string>('');
+  const [riskScore, setRiskScore] = useState<number>(0);
+  const [conditionDetail, setConditionDetail] = useState<ConditionDetail | null>(null);
+  const [featureImportance, setFeatureImportance] = useState<FeatureImportance | null>(null);
   const [selectedPlanForStress, setSelectedPlanForStress] = useState<Plan | null>(null);
   const [stressTestInitialScenario, setStressTestInitialScenario] = useState<{ id: string; name?: string; cost?: number; days?: number; isChronic?: boolean } | undefined>();
   const [isCompareDrawerOpen, setIsCompareDrawerOpen] = useState(false);
@@ -382,6 +581,15 @@ function DashboardContent() {
 
         setAllAvailablePlans(allPlans as Plan[]);
 
+        // Extract risk profile data from recommendation
+        if (recommendation) {
+          setRiskTier(recommendation.risk_tier ?? '');
+          setRiskScore(recommendation.risk_score ?? 0);
+          const firstPlan = recommendation.top_plan_ids?.[0];
+          if (firstPlan?.condition_detail) setConditionDetail(firstPlan.condition_detail as ConditionDetail);
+          if (firstPlan?.feature_importance_explanation) setFeatureImportance(firstPlan.feature_importance_explanation as FeatureImportance);
+        }
+
         if (recommendation?.top_plan_ids?.length > 0) {
           const recommended = recommendation.top_plan_ids.map((rp: Record<string, unknown>) => {
             const matched = (allPlans as Plan[]).find(p => p.id === rp.id);
@@ -392,6 +600,7 @@ function DashboardContent() {
               cosine_similarity: rp.cosine_similarity,
               plain_english_explanation: rp.plain_english_explanation,
               warning_flags: (rp.warning_flags as string[]) ?? matched.warning_flags ?? [],
+              suitability_breakdown: rp.suitability_breakdown ?? null,
             };
           }).filter(Boolean) as Plan[];
           setPlans(recommended);
@@ -761,6 +970,16 @@ function DashboardContent() {
 
         {/* ── Plans list ── */}
         <div className="max-w-[960px] w-full mx-auto px-4 sm:px-6 py-5 pb-36 space-y-3">
+
+          {/* Risk Profile Card */}
+          {riskTier && (
+            <RiskProfileCard
+              riskTier={riskTier}
+              riskScore={riskScore}
+              conditionDetail={conditionDetail}
+              featureImportance={featureImportance}
+            />
+          )}
 
           {/* AI banner */}
           <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 flex items-center gap-2">

@@ -8,7 +8,11 @@
       "Bash(ls -la .graphify*)",
       "Bash(ls graphify-out/)",
       "Bash(npm run *)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(python -m uvicorn app.main:app --reload --port 8000)",
+      "Bash(curl -s http://localhost:8000/api/health)"
     ]
   }
 }

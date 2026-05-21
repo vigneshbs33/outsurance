@@ -1,9 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// createBrowserClient stores the session in cookies (not localStorage)
+// so the Next.js middleware can read it server-side and protect routes.
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
 
 type ProfileFields = Record<string, string | number | boolean | null | undefined>;
 type AssessmentVitals = {
@@ -40,10 +42,33 @@ export type FullAssessmentData = AssessmentVitals & {
   income_lakh?: number;
   monthly_budget?: number;
 };
+type ConditionEvent = {
+  name: string;
+  weight: number;
+  resolved: boolean;
+  justification?: string;
+};
+type ConditionDetail = {
+  events: ConditionEvent[];
+  total_condition_risk_score: number;
+  dominant_condition: string | null;
+  risk_summary: string;
+};
 type RiskResult = {
   risk_tier: string;
   risk_score: number;
+  confidence_pct?: number;
   feature_importance_explanation?: Record<string, number>;
+  condition_detail?: ConditionDetail;
+};
+type SuitabilityBreakdown = {
+  budget_fit: number;
+  condition_match: number;
+  risk_alignment: number;
+  age_eligibility: number;
+  coverage_adequacy: number;
+  family_fit: number;
+  cosine_similarity: number;
 };
 type RecommendedPlan = {
   id: number;
@@ -51,84 +76,21 @@ type RecommendedPlan = {
   cosine_similarity?: number;
   plain_english_explanation?: string;
   warning_flags?: string[];
+  suitability_breakdown?: SuitabilityBreakdown;
 };
 
-function encryptData(text: string): string {
-  const salt = 'fidsurance-secure-salt-key-2026';
-  let result = '';
-  for (let i = 0; i < text.length; i++) {
-    const charCode = text.charCodeAt(i);
-    const saltChar = salt.charCodeAt(i % salt.length);
-    result += String.fromCharCode(charCode ^ saltChar);
-  }
-  return typeof window !== 'undefined' ? window.btoa(result) : '';
-}
-
-function decryptData(cipherText: string): string {
-  if (typeof window === 'undefined' || !cipherText) return '';
-  try {
-    const rawText = window.atob(cipherText);
-    const salt = 'fidsurance-secure-salt-key-2026';
-    let result = '';
-    for (let i = 0; i < rawText.length; i++) {
-      const charCode = rawText.charCodeAt(i);
-      const saltChar = salt.charCodeAt(i % salt.length);
-      result += String.fromCharCode(charCode ^ saltChar);
-    }
-    return result;
-  } catch {
-    return '';
-  }
-}
-
-export function getCachedUser() {
-  if (typeof window === 'undefined') return null;
-  const cached = localStorage.getItem('sb-user-cache');
-  if (!cached) return null;
-  const decrypted = decryptData(cached);
-  if (!decrypted) return null;
-  try {
-    return JSON.parse(decrypted);
-  } catch {
-    return null;
-  }
-}
-
-if (typeof window !== 'undefined') {
-  supabase.auth.onAuthStateChange((event, session) => {
-    if (session) {
-      const token = session.access_token;
-      const encryptedToken = encryptData(token);
-      document.cookie = `sb-access-token=${encodeURIComponent(encryptedToken)}; path=/; max-age=${60 * 60 * 24 * 7}; Secure; SameSite=Strict`;
-      const userData = JSON.stringify(session.user);
-      const encryptedUser = encryptData(userData);
-      localStorage.setItem('sb-user-cache', encryptedUser);
-    } else {
-      document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Strict';
-      localStorage.removeItem('sb-user-cache');
-    }
-  });
-}
-
-export async function getJWT() {
-  if (typeof window !== 'undefined') {
-    const cookies = document.cookie.split('; ');
-    const cookieToken = cookies.find(row => row.startsWith('sb-access-token='));
-    if (cookieToken) {
-      const encryptedValue = decodeURIComponent(cookieToken.split('=')[1]);
-      const decrypted = decryptData(encryptedValue);
-      if (decrypted) return decrypted;
-    }
-  }
+export async function getJWT(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.access_token ?? null;
 }
 
 export async function getCurrentUser() {
-  const cached = getCachedUser();
-  if (cached) return cached;
   const { data: { user } } = await supabase.auth.getUser();
   return user;
+}
+
+export async function signOut() {
+  await supabase.auth.signOut();
 }
 
 export async function upsertProfile(userId: string, fields: ProfileFields) {
@@ -207,7 +169,9 @@ export async function saveAssessmentResult(
         cosine_similarity: p.cosine_similarity,
         plain_english_explanation: p.plain_english_explanation,
         warning_flags: p.warning_flags || [],
+        suitability_breakdown: p.suitability_breakdown || null,
         feature_importance_explanation: riskResult.feature_importance_explanation,
+        condition_detail: riskResult.condition_detail || null,
       })),
     });
 

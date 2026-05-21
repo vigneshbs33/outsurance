@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Syne, Barlow_Condensed, Playfair_Display, JetBrains_Mono, DM_Sans, Space_Mono } from 'next/font/google';
+import { AuthProvider } from '../components/AuthProvider';
 import './globals.css';
 
 const syne = Syne({ subsets: ['latin'], weight: ['400', '700', '800'], variable: '--font-display' });
@@ -21,7 +22,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       className={`${syne.variable} ${barlowCondensed.variable} ${playfairDisplay.variable} ${jetbrainsMono.variable} ${dmSans.variable} ${spaceMono.variable}`}
       suppressHydrationWarning
     >
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

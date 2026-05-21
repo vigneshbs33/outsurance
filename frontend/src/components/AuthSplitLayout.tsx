@@ -21,6 +21,13 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
 
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace('/dashboard');
+    });
+  }, [router]);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -129,7 +136,7 @@ export default function AuthSplitLayout({ initialMode }: { initialMode: 'login' 
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         }
       });
       if (authError) {
