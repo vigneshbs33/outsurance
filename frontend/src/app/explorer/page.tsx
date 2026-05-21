@@ -466,12 +466,12 @@ function ExplorerContent() {
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
                         <span className="text-[var(--ink-soft)]">Claims Settled Successfully</span>
-                        <span className="font-bold text-black">{activePlan.claim_settlement_ratio || 95}%</span>
+                        <span className="font-bold text-black">{activePlan.claim_settlement_ratio ? `${activePlan.claim_settlement_ratio}%` : 'N/A'}</span>
                       </div>
 
                       <div className="flex justify-between border-b border-neutral-200 pb-2">
                         <span className="text-[var(--ink-soft)]">Hospital Networks</span>
-                        <span className="font-bold text-black">{(activePlan.hospital_network_count || 8000).toLocaleString('en-IN')}+</span>
+                        <span className="font-bold text-black">{activePlan.hospital_network_count ? `${activePlan.hospital_network_count.toLocaleString('en-IN')}+` : 'N/A'}</span>
                       </div>
 
                       <div className="flex justify-between">
@@ -486,7 +486,7 @@ function ExplorerContent() {
                     <div className="border border-neutral-200 p-4 bg-white mt-4 space-y-1.5" style={{ borderRadius: '12px' }}>
                       <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)] block">AI Recommendation Logic</span>
                       <p className="font-mono text-xs leading-5 text-neutral-700 italic">
-                        "{activePlan.plain_english_explanation}"
+                        &ldquo;{activePlan.plain_english_explanation}&rdquo;
                       </p>
                     </div>
                   )}

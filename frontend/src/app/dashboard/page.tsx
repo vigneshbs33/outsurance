@@ -44,7 +44,7 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
-  const [name, setName] = useState('Member');
+  const [name, setName] = useState('');
   const [plans, setPlans] = useState<Plan[]>([]);
   const [profileMeta, setProfileMeta] = useState<any>(null);
   const [groups, setGroups] = useState<Array<{ id: string; name: string; members: string[] }>>([
@@ -52,8 +52,8 @@ function DashboardContent() {
   ]);
   const [activeGroupId, setActiveGroupId] = useState('group_1');
   const [vitals, setVitals] = useState<Record<string, any> | null>(null);
-  const [score, setScore] = useState(parseInt(searchParams.get('score') || '63', 10));
-  const [tier, setTier] = useState(searchParams.get('tier') || 'MEDIUM');
+  const [score, setScore] = useState(0);
+  const [tier, setTier] = useState('');
   const [featureImportances, setFeatureImportances] = useState<Record<string, number> | null>(null);
   const [selectedPlanForStress, setSelectedPlanForStress] = useState<Plan | null>(null);
   const [stressTestInitialScenario, setStressTestInitialScenario] = useState<{ id: string; name?: string; cost?: number; days?: number; isChronic?: boolean; } | undefined>();
@@ -117,18 +117,22 @@ function DashboardContent() {
 
         if (assessmentRes.data) {
           const data = assessmentRes.data;
-          setVitals({
-            age: data.age || 35,
-            bmi: data.bmi || 26.5,
-            smoker: data.smoker || 0,
-            hba1c: data.hba1c || 6.2,
-            bp_systolic: data.bp_systolic || 120,
-            has_diabetes: data.has_diabetes,
-            has_hypertension: data.has_hypertension,
-            chronic_count: data.chronic_count || 0,
-            monthly_budget: data.monthly_budget || 3000,
-            income_lakh: data.income_lakh || 8.0,
-          });
+          if (data.age && data.bmi && data.hba1c) {
+            setVitals({
+              age: data.age,
+              bmi: data.bmi,
+              smoker: data.smoker ?? 0,
+              hba1c: data.hba1c,
+              bp_systolic: data.bp_systolic ?? 120,
+              has_diabetes: data.has_diabetes,
+              has_hypertension: data.has_hypertension,
+              chronic_count: data.chronic_count ?? 0,
+              monthly_budget: data.monthly_budget ?? 3000,
+              income_lakh: data.income_lakh ?? 8.0,
+            });
+          } else {
+            setVitals(null);
+          }
         } else {
           setVitals(null);
         }
@@ -192,7 +196,8 @@ function DashboardContent() {
   }, [plans, compareIds]);
 
   const friendlyTierName = useMemo(() => {
-    const t = (tier || 'MEDIUM').toUpperCase();
+    if (!tier) return '';
+    const t = tier.toUpperCase();
     if (t === 'LOW') return 'Low Risk';
     if (t === 'MEDIUM') return 'Moderate Risk';
     if (t === 'HIGH') return 'High Risk';
@@ -598,7 +603,8 @@ function DashboardContent() {
   }, [featureImportances, activeGroupVitals]);
 
   const dynamicDescription = useMemo(() => {
-    const t = (tier || 'MEDIUM').toUpperCase();
+    if (!tier) return '';
+    const t = tier.toUpperCase();
     const conditionParts = [];
     if (activeGroupVitals.has_diabetes || (activeGroupVitals.hba1c && activeGroupVitals.hba1c >= 6.5)) conditionParts.push("elevated HbA1c/diabetes indicator");
     if (activeGroupVitals.has_hypertension) conditionParts.push("hypertension risk factors");
@@ -824,7 +830,7 @@ function DashboardContent() {
             <div>
               <SectionEyebrow>Account Overview</SectionEyebrow>
               <h1 className="mt-2 font-[var(--font-heading)] text-3xl font-black uppercase tracking-tight text-black md:text-4xl">
-                Hello, {name}.
+                {name ? `Hello, ${name}.` : 'Dashboard'}
               </h1>
             </div>
             <div className="w-full md:max-w-[200px]">
@@ -1076,7 +1082,7 @@ function DashboardContent() {
                   <h2 className="font-[var(--font-heading)] text-2xl font-black uppercase tracking-tight text-white leading-none">
                     {friendlyTierName}
                   </h2>
-                  <p className="font-mono text-[10px] text-neutral-300">Composite Score: {score / 100} / 1.0</p>
+                  <p className="font-mono text-[10px] text-neutral-300">Composite Score: {(score / 100).toFixed(3)} / 1.0</p>
                 </div>
 
                 <div className="space-y-2">

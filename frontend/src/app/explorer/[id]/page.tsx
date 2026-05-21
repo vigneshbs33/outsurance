@@ -239,7 +239,7 @@ export default function PlanDetailPage({ params }: PageProps) {
               <div className="border border-neutral-200 p-4 space-y-1 bg-white" style={{ borderRadius: '12px' }}>
                 <span className="font-mono text-[9px] uppercase text-[var(--ink-soft)] block">Partner Hospitals</span>
                 <span className="font-mono text-sm font-bold text-black">
-                  {(plan.hospital_network_count || 9800).toLocaleString('en-IN')}+ Cashless
+                  {plan.hospital_network_count ? `${plan.hospital_network_count.toLocaleString('en-IN')}+ Cashless` : 'N/A'}
                 </span>
               </div>
             </div>
@@ -250,7 +250,7 @@ export default function PlanDetailPage({ params }: PageProps) {
             <div className="border border-neutral-200 p-6 bg-neutral-50 space-y-2 animate-fadeIn" style={{ borderRadius: '12px' }}>
               <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">AI Recommendation Logic</span>
               <p className="font-mono text-xs leading-6 text-neutral-800 italic">
-                "{plan.plain_english_explanation}"
+                &ldquo;{plan.plain_english_explanation}&rdquo;
               </p>
             </div>
           )}
