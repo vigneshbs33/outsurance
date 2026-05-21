@@ -13,10 +13,16 @@ load_dotenv()
 
 # Outsurance FastAPI Server Reload Trigger - OpenAI Production Mode
 from .plans_db import INSURANCE_PLANS
-from .scorer import rank_plans
+from .scorer import rank_plans, score_all_plans
 from .llm_service import load_model, generate_text
 from .stress_test import simulate
 from .agent import run_agent
+from .hospital_network import (
+    filter_plan_hospitals,
+    get_cities,
+    get_plan_network,
+    get_plan_city_stats,
+)
 
 app = FastAPI(title="Outsurance API", version="2.0")
 
@@ -267,6 +273,48 @@ def get_all_plans():
     return {"plans": INSURANCE_PLANS}
 
 
+@app.get("/api/hospital-network/cities")
+def hospital_network_cities():
+    return {"cities": get_cities()}
+
+
+@app.get("/api/hospital-network/plans/{plan_id}")
+def hospital_network_plan_summary(plan_id: int):
+    entry = get_plan_network(plan_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Plan network not found")
+    benefits = entry.get("benefits", {})
+    return {
+        "plan_id": plan_id,
+        "plan_name": entry.get("plan_name"),
+        "insurer": entry.get("insurer"),
+        "network_summary": entry.get("network_summary"),
+        "national_network_count": benefits.get("network_hospital_count"),
+        "cities": get_plan_city_stats(plan_id),
+    }
+
+
+@app.get("/api/hospital-network/plans/{plan_id}/hospitals")
+def hospital_network_plan_hospitals(
+    plan_id: int,
+    city_id: int,
+    q: str = "",
+    settlement: str = "all",
+    offset: int = 0,
+    limit: int = 80,
+):
+    if not get_plan_network(plan_id):
+        raise HTTPException(status_code=404, detail="Plan network not found")
+    return filter_plan_hospitals(
+        plan_id,
+        city_id,
+        query=q,
+        settlement=settlement,
+        offset=max(0, offset),
+        limit=min(max(1, limit), 200),
+    )
+
+
 @app.post("/api/assess")
 def assess_user(profile: UserProfile, request: Request):
     """
@@ -354,6 +402,45 @@ def assess_user(profile: UserProfile, request: Request):
             "condition_detail": condition_detail,
         },
         "recommended_plans": top_plans,
+    }
+
+
+def _build_user_dict_for_scoring(profile: "UserProfile", risk_tier: str, risk_score: float, condition_detail):
+    user_dict = profile.dict()
+    user_dict['risk_tier'] = risk_tier
+    user_dict['risk_score'] = risk_score
+    user_dict['has_diabetes'] = int(bool(profile.diabetes or profile.has_diabetes))
+    user_dict['has_hypertension'] = int(bool(profile.hypertension or profile.has_hypertension))
+    if condition_detail:
+        user_dict['condition_risk_score'] = condition_detail['normalized_for_xgboost']
+        user_dict['dominant_condition'] = condition_detail['dominant_condition']
+        user_dict['condition_detail'] = condition_detail
+        user_dict['condition_events'] = condition_detail.get('events') or []
+    else:
+        user_dict['condition_risk_score'] = round(min(5.0, profile.chronic_count * 0.60), 4)
+        user_dict['dominant_condition'] = ''
+        user_dict['condition_detail'] = None
+    return user_dict
+
+
+@app.post("/api/rank-plans")
+def rank_all_plans_endpoint(profile: UserProfile, request: Request):
+    """
+    Score the full in-memory catalogue (Stages 2+3) without Gemma explanations.
+    Returns all eligible plans with suitability_score and cosine_similarity.
+    """
+    verify_jwt(request)
+    risk_tier, risk_score, _, condition_detail = assess_risk(profile)
+    user_dict = _build_user_dict_for_scoring(profile, risk_tier, risk_score, condition_detail)
+    scored = score_all_plans(INSURANCE_PLANS, user_dict)
+    return {
+        "risk_assessment": {
+            "risk_tier": risk_tier,
+            "risk_score": risk_score,
+            "condition_detail": condition_detail,
+        },
+        "scored_plans": scored,
+        "total": len(scored),
     }
 
 

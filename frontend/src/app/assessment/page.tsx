@@ -1,7 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense, useEffect, useState, useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useLanguage } from '../../components/LanguageProvider';
+import { triggerGTranslate } from '../../components/GTranslateWidget';
+import { intakeToLocale } from '../../i18n/config';
 import { assessHealthProfile, chatWithAdvisor, parseConditionsFromText, processLabReport, scoreConditions } from '../../lib/api';
 import {
   buildMemberConditionTerms,
@@ -11,7 +14,8 @@ import {
 } from '../../lib/medicalHistory';
 import { saveAssessmentResult, supabase } from '../../lib/supabase';
 import { AnnotationBox, FormField } from '../../components/editorial';
-import { Lock, FileText, ArrowRight, ShieldCheck, Check, Plus, Minus, Info, Sparkles, ChevronRight, ChevronDown, X } from 'lucide-react';
+import { AssessmentStepShell } from '../../components/AssessmentStepShell';
+import { Lock, FileText, Check, Plus, Sparkles, ChevronDown, X } from 'lucide-react';
 import { HealthCondition, IntakeLanguage, InsuredMember } from '../../enums/assessment.enum';
 import { LANGUAGES, MEMBER_CARDS, ILLNESSES, POPULAR_CITIES, MemberCardItem } from '../../data/assessment.data';
 
@@ -41,9 +45,13 @@ function ConditionPreview({ detail, compact }: { detail: ConditionDetail; compac
   );
 }
 
-export default function AssessmentPage() {
+function AssessmentPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { t, setLocale, locale } = useLanguage();
   const [step, setStep] = useState(1);
+  const [isReassessment, setIsReassessment] = useState(false);
+  const assessAbortRef = useRef(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
 
@@ -168,8 +176,34 @@ export default function AssessmentPage() {
         return;
       }
       setUserId(user.id);
+      if (searchParams.get('reassess') === '1') {
+        setIsReassessment(true);
+        return;
+      }
+      supabase
+        .from('assessment_sessions')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setIsReassessment(true);
+        });
     });
-  }, [router]);
+  }, [router, searchParams]);
+
+  useEffect(() => {
+    setLocale(intakeToLocale(language));
+  }, [language, setLocale]);
+
+  function handleCancelReassessment() {
+    assessAbortRef.current = true;
+    if (step === 10) {
+      setStep(9);
+      setAssessmentError(null);
+    }
+    router.push(isReassessment ? '/dashboard' : '/explorer');
+  }
 
   const activeMembersList = useMemo(() => {
     const list: string[] = [];
@@ -330,6 +364,7 @@ export default function AssessmentPage() {
 
   useEffect(() => {
     if (step !== 10) return;
+    assessAbortRef.current = false;
 
     const interval = setInterval(() => {
       const loadingTexts = [
@@ -428,12 +463,15 @@ export default function AssessmentPage() {
 
     assessHealthProfile(finalData)
       .then(async (result) => {
+        if (assessAbortRef.current) return;
         if (userId) {
           await saveAssessmentResult(userId, finalData, result.risk_assessment, result.recommended_plans);
         }
+        if (assessAbortRef.current) return;
         router.push(`/dashboard?score=${Math.round(result.risk_assessment.risk_score * 100)}&tier=${result.risk_assessment.risk_tier}`);
       })
       .catch((err) => {
+        if (assessAbortRef.current) return;
         setAssessmentError(
           err instanceof Error
             ? err.message
@@ -441,7 +479,10 @@ export default function AssessmentPage() {
         );
       });
 
-    return () => clearInterval(interval);
+    return () => {
+      assessAbortRef.current = true;
+      clearInterval(interval);
+    };
   }, [step, activeMembersList, budget, calculatedBMI, bp, groups, hba1c, height, income, language, gender, memberAges, memberMedicalHistory, memberOtherConditions, advisorExtraConditions, memberDOBs, mobileNumber, fullName, primaryAge, router, smoker, userId, weight, city, memberUploads]);
 
   function formatCommas(value: string) {
@@ -768,9 +809,9 @@ export default function AssessmentPage() {
   }
 
   const nextStepLabel = useMemo(() => {
-    if (step === 9) return 'Find Plans';
-    return 'Continue';
-  }, [step]);
+    if (step === 9) return t('common.continue');
+    return t('common.continue');
+  }, [step, t, locale]);
 
   function handleStepAdvance() {
     if (!progressValidation) return;
@@ -806,87 +847,127 @@ export default function AssessmentPage() {
     return displayedMemberCards.slice(6);
   }, [displayedMemberCards]);
 
+  const stepTitle = useMemo(() => {
+    const keys: Record<number, string> = {
+      1: 'assessment.chooseLanguage',
+      2: 'assessment.whoToCover',
+      3: 'assessment.dob',
+      4: 'assessment.selectCity',
+      5: 'assessment.medicalHistory',
+      6: 'assessment.labReports',
+      7: 'assessment.vitalsBudget',
+      8: 'assessment.policyGroups',
+      9: 'assessment.advisor',
+      10: 'assessment.findingPlans',
+    };
+    return t(keys[step] ?? 'assessment.chooseLanguage');
+  }, [step, t, locale]);
+
+  const shellExtras = {
+    showCancel: isReassessment,
+    onCancel: handleCancelReassessment,
+    topNote: isReassessment ? t('assessment.reassessmentNote') : undefined,
+  };
+
+  const shellNav =
+    step > 1 && step < 10
+      ? {
+          showBack: true,
+          showContinue: true,
+          continueLabel: step === 9 ? t('common.continue') : nextStepLabel,
+          continueDisabled: step < 9 ? !progressValidation : false,
+          onBack: handleStepRetreat,
+          onContinue: step === 9 ? () => setStep(10) : handleStepAdvance,
+        }
+      : { showBack: false, showContinue: false };
+
   return (
-    <main className="min-h-screen bg-white px-4 sm:px-8 py-8 lg:px-12">
-      <div className="mx-auto max-w-[1100px]">
-        <header className="mb-12 flex flex-col gap-4 border-b border-neutral-200 pb-8 md:flex-row md:items-end md:justify-between">
-          <div>
-            <span className="font-mono text-xs uppercase tracking-widest text-neutral-400">Step 0{step} / 09</span>
-            <h1 className="mt-2 font-[var(--font-heading)] text-3xl font-black uppercase tracking-tight text-black md:text-4xl">
-              {step === 1 && 'Intake Language'}
-              {step === 2 && 'Select Family Members'}
-              {step === 3 && 'Enter DOB Details'}
-              {step === 4 && 'City & Mobile Information'}
-              {step === 5 && 'Medical History Check'}
-              {step === 6 && 'Upload Lab Reports'}
-              {step === 7 && 'Health Vitals & Budget'}
-              {step === 8 && 'Custom Policy Groups'}
-              {step === 9 && 'Advisor Interactive Consultation'}
-              {step === 10 && 'Finding Match Projections'}
-            </h1>
-          </div>
-
-          <div className="w-full md:max-w-[280px]">
-            <div className="h-[2px] w-full bg-neutral-100">
-              <div
-                className={`h-[2px] bg-black transition-all duration-500 ease-out ${
-                  step === 1
-                    ? 'w-[11%]'
-                    : step === 2
-                    ? 'w-[22%]'
-                    : step === 3
-                    ? 'w-[33%]'
-                    : step === 4
-                    ? 'w-[44%]'
-                    : step === 5
-                    ? 'w-[55%]'
-                    : step === 6
-                    ? 'w-[66%]'
-                    : step === 7
-                    ? 'w-[77%]'
-                    : step === 8
-                    ? 'w-[88%]'
-                    : 'w-full'
-                }`}
-              />
-            </div>
-            <div className="mt-2 flex justify-between font-mono text-[10px] uppercase text-neutral-400">
-              <span>Start</span>
-              <span>Finished</span>
-            </div>
-          </div>
-        </header>
-
-        <section className="grid gap-12 lg:grid-cols-[1.5fr_1fr]">
-          <div className="space-y-8">
-            {step === 1 && (
-              <div className="space-y-6 animate-fadeIn">
-                <AnnotationBox title="Language Preference">
-                  Choose the preferred language to display health questionnaires and chatbot dialogues.
-                </AnnotationBox>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {LANGUAGES.map((lang) => (
+    <main className="min-h-screen bg-white">
+      <div className="mx-auto w-full">
+        {step === 10 ? (
+          <div className="max-w-lg mx-auto px-4 py-16">
+            <AssessmentStepShell step={10} title={stepTitle} hideNav {...shellExtras}>
+              {assessmentError ? (
+                <div className="space-y-6 p-6 border border-neutral-200 rounded-2xl text-center">
+                  <p className="text-2xl">⚠️</p>
+                  <p className="font-bold text-neutral-800">Risk assessment error</p>
+                  <p className="text-sm text-neutral-500">{assessmentError}</p>
+                  <div className="flex flex-col gap-2">
                     <button
-                      key={lang.code}
+                      type="button"
                       onClick={() => {
-                        setLanguage(lang.code);
-                        setStep(2);
+                        setAssessmentError(null);
+                        setStep(9);
+                        setTimeout(() => setStep(10), 100);
                       }}
-                      className={`p-6 border transition-all text-left flex flex-col gap-2 ${
-                        language === lang.code
-                          ? 'border-black bg-neutral-50 font-bold'
-                          : 'border-neutral-200 hover:border-black'
-                      }`}
+                      className="h-11 rounded-xl bg-[#ff4f18] text-white text-sm font-bold"
                     >
-                      <span className="font-mono text-xs uppercase tracking-wider text-neutral-400">{lang.name}</span>
-                      <span className="font-[var(--font-heading)] text-xl text-black">{lang.nativeName}</span>
+                      Retry
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssessmentError(null);
+                        setStep(7);
+                      }}
+                      className="h-11 rounded-xl border border-neutral-200 text-sm font-semibold"
+                    >
+                      Edit health vitals
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-
+              ) : (
+                <div className="py-8 text-center space-y-6">
+                  <span className="h-10 w-10 border-2 border-emerald-600 border-t-transparent animate-spin rounded-full inline-block" />
+                  <p className="text-xl font-bold text-teal-800">{t('assessment.findingPlans')}</p>
+                  <p className="text-sm text-neutral-500">{loadingText}</p>
+                  {isReassessment && (
+                    <button
+                      type="button"
+                      onClick={handleCancelReassessment}
+                      className="mt-4 h-11 px-6 rounded-xl border border-neutral-200 text-sm font-bold text-neutral-600 hover:border-red-300 hover:text-red-600"
+                    >
+                      {t('assessment.cancelReassessment')}
+                    </button>
+                  )}
+                </div>
+              )}
+            </AssessmentStepShell>
+          </div>
+        ) : step === 1 ? (
+          <AssessmentStepShell step={1} title={stepTitle} hideNav {...shellExtras}>
+            <p className="text-sm text-neutral-500 text-center mb-6">{t('assessment.languageHint')}</p>
+            <div className="grid grid-cols-2 gap-3">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => {
+                    setLanguage(lang.code);
+                    const loc = intakeToLocale(lang.code);
+                    setLocale(loc);
+                    setStep(2);
+                  }}
+                  className={`p-4 rounded-xl border text-left transition-all ${
+                    language === lang.code
+                      ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-200'
+                      : 'border-neutral-200 hover:border-emerald-400'
+                  }`}
+                >
+                  <span className="text-[10px] uppercase text-neutral-400 font-bold block">{lang.name}</span>
+                  <span className="text-base font-bold text-teal-800">{lang.nativeName}</span>
+                </button>
+              ))}
+            </div>
+          </AssessmentStepShell>
+        ) : (
+          <AssessmentStepShell
+            step={step}
+            title={stepTitle}
+            subtitle={step === 4 ? t('assessment.citySubtitle') : undefined}
+            {...shellNav}
+            {...shellExtras}
+          >
             {step === 2 && (
               <div className="space-y-8 animate-fadeIn">
                 <AnnotationBox title="Insured Members Selection">
@@ -1085,93 +1166,107 @@ export default function AssessmentPage() {
 
             {step === 4 && (
               <div className="space-y-6 animate-fadeIn">
-                <div className="flex items-start gap-3 border-t-2 border-black bg-neutral-50 p-4">
-                  <Lock size={16} className="text-black mt-0.5" />
-                  <div>
-                    <span className="font-mono text-[9px] uppercase font-bold text-black block mb-0.5">Secure Form Intake</span>
-                    <p className="font-mono text-[11px] leading-5 text-neutral-500">
-                      Mobile verification saves assessment details to Supabase. Full privacy guaranteed.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-6">
-                  <FormField label="Full Name">
-                    <input
-                      className="field-input font-mono"
-                      placeholder="e.g. Ishaan Sen"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                    />
-                  </FormField>
-
-                  <FormField label="Mobile Number">
-                    <input
-                      className="field-input font-mono"
-                      placeholder="e.g. 9876543210"
-                      value={mobileNumber}
-                      onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      maxLength={10}
-                    />
-                  </FormField>
-
+                <div className="relative">
+                  <label className="text-xs font-semibold text-neutral-500 mb-1.5 block">
+                    {t('assessment.searchCity')}
+                  </label>
                   <div className="relative">
-                    <FormField label="Insured City">
-                      <input
-                        className="field-input font-mono"
-                        placeholder="Type city search..."
-                        value={citySearch || city}
-                        onChange={(e) => {
-                          setCitySearch(e.target.value);
+                    <input
+                      className="w-full h-12 px-4 pr-10 border-2 border-neutral-200 rounded-xl text-sm outline-none focus:border-emerald-500"
+                      placeholder="Type to search…"
+                      value={citySearch || city}
+                      onChange={(e) => {
+                        setCitySearch(e.target.value);
+                        setCity('');
+                        setShowCityDropdown(true);
+                      }}
+                      onFocus={() => setShowCityDropdown(true)}
+                    />
+                    {(citySearch || city) && (
+                      <button
+                        type="button"
+                        aria-label="Clear city"
+                        onClick={() => {
+                          setCitySearch('');
                           setCity('');
-                          setShowCityDropdown(true);
                         }}
-                        onFocus={() => setShowCityDropdown(true)}
-                      />
-                    </FormField>
-
-                    {showCityDropdown && filteredCities.length > 0 && (
-                      <div className="absolute left-0 right-0 z-50 mt-1 border border-neutral-200 bg-white shadow-lg font-mono text-xs">
-                        {filteredCities.map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => {
-                              setCity(c);
-                              setCitySearch(c);
-                              setShowCityDropdown(false);
-                            }}
-                            className="w-full p-2.5 text-left hover:bg-neutral-50 transition-colors uppercase border-b border-neutral-100 last:border-b-0"
-                          >
-                            {c}
-                          </button>
-                        ))}
-                      </div>
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+                      >
+                        <X size={16} />
+                      </button>
                     )}
                   </div>
-
-                  <div className="space-y-2">
-                    <span className="font-mono text-[10px] uppercase text-neutral-400 font-bold">Popular Indian Cities</span>
-                    <div className="flex flex-wrap gap-2">
-                      {POPULAR_CITIES.map((c) => (
+                  {showCityDropdown && filteredCities.length > 0 && (
+                    <div className="absolute left-0 right-0 z-50 mt-1 border border-neutral-200 bg-white shadow-lg rounded-xl overflow-hidden text-sm">
+                      {filteredCities.map((c) => (
                         <button
                           key={c}
                           type="button"
                           onClick={() => {
                             setCity(c);
                             setCitySearch(c);
+                            setShowCityDropdown(false);
                           }}
-                          className={`px-3 py-1.5 border font-mono text-[10px] uppercase transition-colors ${
-                            city === c
-                              ? 'bg-black text-white border-black font-bold'
-                              : 'bg-white border-neutral-200 text-neutral-500 hover:border-black hover:text-black'
-                          }`}
+                          className="w-full px-4 py-2.5 text-left hover:bg-neutral-50 border-b border-neutral-100 last:border-b-0"
                         >
                           {c}
                         </button>
                       ))}
                     </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-sm font-bold text-teal-800 mb-3">{t('assessment.popularCities')}</p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {POPULAR_CITIES.map((c) => {
+                      const selected = city === c;
+                      return (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            setCity(c);
+                            setCitySearch(c);
+                            setShowCityDropdown(false);
+                          }}
+                          className={`px-3 py-2 rounded-full border text-xs font-semibold transition-colors ${
+                            selected
+                              ? 'border-emerald-500 text-emerald-700 bg-emerald-50'
+                              : 'border-neutral-200 text-teal-800 hover:border-emerald-300'
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      );
+                    })}
                   </div>
+                </div>
+
+                <div className="pt-4 border-t border-neutral-100 space-y-4">
+                  <div className="flex items-start gap-2 text-neutral-500">
+                    <Lock size={14} className="shrink-0 mt-0.5" />
+                    <p className="text-[11px] leading-relaxed">
+                      Your name and mobile are stored securely for policy quotes.
+                    </p>
+                  </div>
+                  <FormField label="Full name">
+                    <input
+                      className="w-full h-11 px-4 border-2 border-neutral-200 rounded-xl text-sm outline-none focus:border-[#0d3c94]"
+                      placeholder="e.g. Ishaan Sen"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Mobile number">
+                    <input
+                      className="w-full h-11 px-4 border-2 border-neutral-200 rounded-xl text-sm outline-none focus:border-[#0d3c94]"
+                      placeholder="10-digit mobile"
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      maxLength={10}
+                    />
+                  </FormField>
                 </div>
               </div>
             )}
@@ -1613,136 +1708,23 @@ export default function AssessmentPage() {
               </div>
             )}
 
-            {step === 10 && (
-              <div className="py-16 text-center space-y-6">
-                {assessmentError ? (
-                  <div className="max-w-md mx-auto space-y-6 p-8 border border-neutral-200 bg-white rounded-xl shadow-sm animate-fadeIn">
-                    <div className="flex justify-center">
-                      <span className="text-4xl">⚠️</span>
-                    </div>
-                    <div className="font-mono text-xl font-bold uppercase tracking-widest text-black">
-                      Risk Assessment Error
-                    </div>
-                    <p className="font-mono text-xs leading-6 text-neutral-500">
-                      {assessmentError}
-                    </p>
-                    <div className="flex flex-col gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAssessmentError(null);
-                          setStep(9);
-                          setTimeout(() => setStep(10), 100);
-                        }}
-                        className="mono-btn-primary w-full py-3 rounded-xl font-mono text-xs uppercase tracking-wider"
-                      >
-                        Retry Risk Estimation
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAssessmentError(null);
-                          setStep(7);
-                        }}
-                        className="mono-btn-secondary w-full py-3 rounded-xl font-mono text-xs uppercase tracking-wider"
-                      >
-                        Edit Health Vitals
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="flex justify-center">
-                      <span className="h-10 w-10 border-2 border-black border-t-transparent animate-spin rounded-full" />
-                    </div>
-                    <div className="font-mono text-3xl font-black uppercase tracking-widest text-black">
-                      FINDING MATCHES
-                    </div>
-                    <p className="max-w-md mx-auto font-mono text-xs leading-6 text-neutral-400 h-10">
-                      {loadingText}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <aside className="space-y-6">
-            <div className="border border-neutral-200 p-6 bg-neutral-50">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 block mb-4">
-                Assessed Profile Review
-              </span>
-              <div className="space-y-3">
-                <div className="flex justify-between border-b border-neutral-200 pb-2">
-                  <span className="font-mono text-xs text-neutral-400">Insured Language</span>
-                  <span className="font-mono text-xs font-bold uppercase">{language}</span>
-                </div>
-                <div className="flex justify-between border-b border-neutral-200 pb-2">
-                  <span className="font-mono text-xs text-neutral-400">Total Members</span>
-                  <span className="font-mono text-xs font-bold uppercase">{activeMembersList.length}</span>
-                </div>
-                <div className="flex justify-between border-b border-neutral-200 pb-2">
-                  <span className="font-mono text-xs text-neutral-400">City / Location</span>
-                  <span className="font-mono text-xs font-bold uppercase">{city || 'Pending'}</span>
-                </div>
-                <div className="flex justify-between border-b border-neutral-200 pb-2">
-                  <span className="font-mono text-xs text-neutral-400">Vitals interaction (BMI)</span>
-                  <span className="font-mono text-xs font-bold">{calculatedBMI} kg/m²</span>
-                </div>
-                <div className="flex justify-between border-b border-neutral-200 pb-2">
-                  <span className="font-mono text-xs text-neutral-400">HbA1c / bp</span>
-                  <span className="font-mono text-xs font-bold">{hba1c}% / {bp}</span>
-                </div>
-                <div className="flex justify-between border-b border-neutral-200 pb-2">
-                  <span className="font-mono text-xs text-neutral-400">Annual Income</span>
-                  <span className="font-mono text-xs font-bold">₹{income}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-mono text-xs text-neutral-400">Target Premium</span>
-                  <span className="font-mono text-xs font-bold">₹{budget}/mo</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {step < 9 && step > 1 && (
-                <button
-                  type="button"
-                  onClick={handleStepAdvance}
-                  disabled={!progressValidation}
-                  className={`mono-btn-primary flex items-center justify-center gap-2 ${
-                    !progressValidation ? 'opacity-40 cursor-not-allowed' : ''
-                  }`}
-                >
-                  <span>{nextStepLabel}</span>
-                  <ChevronRight size={14} />
-                </button>
-              )}
-
-              {step === 9 && (
-                <button
-                  type="button"
-                  onClick={() => setStep(10)}
-                  className="mono-btn-primary flex items-center justify-center gap-2 animate-bounce"
-                >
-                  <span>Exit Chat and Find Plans</span>
-                  <ChevronRight size={14} />
-                </button>
-              )}
-
-              {step > 1 && step < 10 && (
-                <button
-                  type="button"
-                  onClick={handleStepRetreat}
-                  className="mono-btn-secondary"
-                >
-                  Go Back
-                </button>
-              )}
-            </div>
-          </aside>
-        </section>
+          </AssessmentStepShell>
+        )}
       </div>
     </main>
+  );
+}
+
+export default function AssessmentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <span className="h-8 w-8 border-2 border-emerald-600 border-t-transparent animate-spin rounded-full" />
+        </div>
+      }
+    >
+      <AssessmentPageContent />
+    </Suspense>
   );
 }

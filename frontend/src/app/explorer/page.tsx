@@ -3,67 +3,65 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '../../components/Sidebar';
-import { AnnotationBox, FormField, SectionEyebrow } from '../../components/editorial';
-import { fetchAllPlans } from '../../lib/api';
+import { fetchAllPlans, rankAllPlans } from '../../lib/api';
 import { supabase, getLatestRecommendation } from '../../lib/supabase';
 import { useCompare } from '../../lib/compare';
 import StressTestModal, { Plan } from '../../components/StressTestModal';
 import CompareDrawer from '../../components/CompareDrawer';
+import { FilterPlansModal, FilterState } from '../../components/FilterPlansModal';
+import { InsurerGroup } from '../../components/plan-cards';
+import { ExplorerCoverageBar } from '../../components/ExplorerCoverageBar';
+import { CashlessHospitalsModal } from '../../components/CashlessHospitalsModal';
+import { parseProfileFromFullName } from '../../lib/profileMeta';
+import { getPlanCosineSimilarity, mergeScoredPlans, mergeRecommendationScores } from '../../lib/planCompare';
+import { useLanguage } from '../../components/LanguageProvider';
+import { ChevronDown, SlidersHorizontal, Sparkles } from 'lucide-react';
+import {
+  SortByOption, CoverOption, RoomRentOption, PolicyBenefitOption,
+  ExistingDiseaseWaitOption, PremiumOption, PortabilityOption,
+  MaternityWaitOption, PolicyPeriodOption, MaternityCoverOption,
+} from '../../enums/filters.enum';
 
-const INSURERS = [
-  'Star Health',
-  'HDFC ERGO',
-  'Niva Bupa',
-  'Care Health',
-  'LIC',
-  'Bajaj Allianz',
-  'ICICI Lombard',
-  'Aditya Birla',
-  'ManipalCigna',
-  'Tata AIG',
-  'Max Bupa',
-  'SBI General'
-];
-
-const PLAN_TYPES = [
-  'Basic',
-  'Comprehensive',
-  'Standard',
-  'Senior',
-  'Critical Illness',
-  'Term Life'
-];
+const DEFAULT_FILTERS: FilterState = {
+  sortBy: SortByOption.RELEVANCE,
+  cover: CoverOption.RECOMMENDED,
+  roomRent: RoomRentOption.NO_PREFERENCE,
+  benefits: [],
+  existingDiseaseWait: ExistingDiseaseWaitOption.NO_PREFERENCE,
+  premiumPerMonth: PremiumOption.NO_PREFERENCE,
+  portability: PortabilityOption.NO_PREFERENCE,
+  maternityWait: MaternityWaitOption.NO_PREFERENCE,
+  policyPeriod: PolicyPeriodOption.ONE_YEAR,
+  selectedInsurers: [],
+  maternityCover: MaternityCoverOption.NO_PREFERENCE,
+};
 
 function ExplorerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
+  const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [query, setQuery] = useState(searchParams.get('search') || '');
-  const [activeId, setActiveId] = useState<number | null>(null);
-  const [notification, setNotification] = useState<string | null>(null);
-
-  // Filters State
-  const [showFilters, setShowFilters] = useState(false);
-  const [premiumLimit, setPremiumLimit] = useState<number>(25000);
-  const [coverageMin, setCoverageMin] = useState<number>(500000);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedInsurers, setSelectedInsurers] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<string>('score');
-
-  // Pagination State
-  const [visibleCount, setVisibleCount] = useState(10);
-
-  useEffect(() => {
-    setTimeout(() => {
-      setVisibleCount(10);
-    }, 0);
-  }, [query, premiumLimit, coverageMin, selectedTypes, selectedInsurers, sortBy]);
-
-  // Modals & Comparison State
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [cashlessOnly, setCashlessOnly] = useState(false);
+  const [payYearly, setPayYearly] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [selectedPlanForStress, setSelectedPlanForStress] = useState<Plan | null>(null);
   const [isCompareDrawerOpen, setIsCompareDrawerOpen] = useState(false);
+  const [compareNotice, setCompareNotice] = useState<string | null>(null);
+  const [hospitalPlan, setHospitalPlan] = useState<Plan | null>(null);
+  const [profileCity, setProfileCity] = useState('');
+  const planIds = useMemo(() => plans.map((p) => Number(p.id)), [plans]);
+  const { compareIds, toggleCompare, clearCompare } = useCompare(planIds);
 
-  const { compareIds, toggleCompare, clearCompare, isInCompare } = useCompare();
+  const handleToggleCompare = (id: number) => {
+    const ok = toggleCompare(id);
+    if (!ok) {
+      setCompareNotice(t('explorer.compareLimit'));
+      setTimeout(() => setCompareNotice(null), 3500);
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -73,509 +71,359 @@ function ExplorerContent() {
       }
       Promise.all([
         fetchAllPlans(),
-        getLatestRecommendation(user.id)
-      ]).then(([allPlans, recommendation]) => {
-        if (recommendation && recommendation.top_plan_ids && recommendation.top_plan_ids.length > 0) {
-          const mergedPlans = (allPlans as Plan[]).map((plan) => {
-            const recPlan = recommendation.top_plan_ids.find((rp: { id: unknown }) => rp.id === plan.id);
-            if (recPlan) {
-              return {
-                ...plan,
-                suitability_score: recPlan.score,
-                cosine_similarity: recPlan.cosine_similarity,
-                plain_english_explanation: recPlan.plain_english_explanation,
-                warning_flags: recPlan.warning_flags || plan.warning_flags || []
-              };
+        getLatestRecommendation(user.id),
+        supabase.from('profiles').select('full_name, city').eq('id', user.id).maybeSingle(),
+        supabase
+          .from('assessment_sessions')
+          .select('age, bmi, smoker, hba1c, bp_systolic, has_diabetes, has_hypertension, chronic_count, monthly_budget, income_lakh')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
+        .then(async ([allPlans, recommendation, profileRes, assessmentRes]) => {
+          const profileRow = profileRes.data;
+          if (profileRow?.city) {
+            setProfileCity(profileRow.city as string);
+          } else if (profileRow?.full_name) {
+            const { meta } = parseProfileFromFullName(profileRow.full_name as string);
+            if (meta?.city) setProfileCity(String(meta.city));
+          }
+          let merged = mergeRecommendationScores(allPlans as Plan[], recommendation);
+          const assess = assessmentRes.data;
+          const scoredCount = merged.filter((p) => getPlanCosineSimilarity(p) > 0).length;
+          if (scoredCount < 10 && assess?.age && assess?.bmi && assess?.hba1c) {
+            try {
+              const ranked = await rankAllPlans({
+                age: assess.age,
+                bmi: assess.bmi,
+                smoker: assess.smoker ? 1 : 0,
+                hba1c: assess.hba1c,
+                bp_systolic: assess.bp_systolic ?? 120,
+                diabetes: assess.has_diabetes ? 1 : 0,
+                hypertension: assess.has_hypertension ? 1 : 0,
+                chronic_count: assess.chronic_count ?? 0,
+                monthly_budget: assess.monthly_budget ?? 3000,
+                income_lakh: assess.income_lakh ?? 8,
+              });
+              if (ranked.scored_plans?.length) {
+                merged = mergeScoredPlans(allPlans as Plan[], ranked.scored_plans as Plan[]);
+              }
+            } catch {
+              /* keep recommendation merge */
             }
-            return plan;
-          });
-          setPlans(mergedPlans);
-          setActiveId((mergedPlans[0]?.id as number | null) ?? null);
-        } else {
-          setPlans(allPlans as Plan[]);
-          setActiveId((allPlans[0]?.id as number | null) ?? null);
-        }
-      });
+          }
+          setPlans(merged);
+        })
+        .finally(() => setLoading(false));
     });
   }, [router]);
 
-  // Handle toggling of array filters
-  const toggleType = (type: string) => {
-    setSelectedTypes(prev => 
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
-  };
+  const filteredPlans = useMemo<Plan[]>(() => {
+    let list = [...plans];
+    const q = query.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.insurer.toLowerCase().includes(q) ||
+          (p.type ?? '').toLowerCase().includes(q)
+      );
+    }
 
-  const toggleInsurer = (insurer: string) => {
-    setSelectedInsurers(prev => 
-      prev.includes(insurer) ? prev.filter(i => i !== insurer) : [...prev, insurer]
-    );
-  };
+    if (cashlessOnly) list = list.filter((p) => (p.hospital_network_count ?? 0) >= 10000);
 
-  const resetFilters = () => {
-    setPremiumLimit(25000);
-    setCoverageMin(500000);
-    setSelectedTypes([]);
-    setSelectedInsurers([]);
-    setQuery('');
-  };
+    if (filters.cover !== CoverOption.RECOMMENDED) {
+      if (filters.cover === CoverOption.BELOW_5_LAKH) list = list.filter((p) => p.coverage < 500000);
+      else if (filters.cover === CoverOption.FIVE_TO_NINE_LAKH)
+        list = list.filter((p) => p.coverage >= 500000 && p.coverage <= 900000);
+      else if (filters.cover === CoverOption.TEN_TO_TWENTY_FOUR_LAKH)
+        list = list.filter((p) => p.coverage >= 1000000 && p.coverage <= 2400000);
+      else if (filters.cover === CoverOption.TWENTY_FIVE_TO_NINETY_NINE_LAKH)
+        list = list.filter((p) => p.coverage >= 2500000 && p.coverage <= 9900000);
+      else if (filters.cover === CoverOption.ONE_TO_TWO_CR)
+        list = list.filter((p) => p.coverage >= 10000000 && p.coverage <= 20000000);
+      else if (filters.cover === CoverOption.TWO_TO_SIX_CR)
+        list = list.filter((p) => p.coverage >= 20000000);
+    }
 
-  // Filter & Sort Logic
-  const filteredAndSorted = useMemo(() => {
-    const result = plans.filter((plan) => {
-      // Query filter
-      const lower = query.toLowerCase();
-      const matchesQuery = !lower || 
-        plan.name.toLowerCase().includes(lower) || 
-        plan.insurer.toLowerCase().includes(lower);
-
-      // Premium slider filter
-      const matchesPremium = plan.annual_premium <= premiumLimit;
-
-      // Coverage filter
-      const matchesCoverage = plan.coverage >= coverageMin;
-
-      // Plan types filter
-      const matchesType = selectedTypes.length === 0 || (plan.type ? selectedTypes.includes(plan.type) : false);
-
-      // Insurers filter
-      const matchesInsurer = selectedInsurers.length === 0 || selectedInsurers.includes(plan.insurer);
-
-      return matchesQuery && matchesPremium && matchesCoverage && matchesType && matchesInsurer;
+    filters.benefits.forEach((b: string) => {
+      if (b === PolicyBenefitOption.DIABETES_COVERED) list = list.filter((p) => p.diabetes_day1);
+      else if (b === PolicyBenefitOption.NO_CLAIM_BONUS)
+        list = list.filter((p) => (p.no_claim_bonus_pct ?? 0) > 0);
+      else if (b === PolicyBenefitOption.RESTORATION_BENEFITS)
+        list = list.filter((p) => p.restoration_benefit);
+      else if (b === PolicyBenefitOption.FREE_HEALTH_CHECKUP)
+        list = list.filter((p) =>
+          p.coverage_highlights?.some((h: string) => h.toLowerCase().includes('check'))
+        );
+      else if (b === PolicyBenefitOption.DOCTOR_CONSULTATION_PHARMACY)
+        list = list.filter((p) => p.pros?.some((h: string) => h.toLowerCase().includes('opd')));
+      else if (b === PolicyBenefitOption.DAY_CARE_TREATMENTS)
+        list = list.filter((p) =>
+          p.coverage_highlights?.some((h: string) => h.toLowerCase().includes('day care'))
+        );
     });
 
-    // Sort result
-    return result.sort((a, b) => {
-      if (sortBy === 'score') {
-        return (b.suitability_score || 8.4) - (a.suitability_score || 8.4);
-      }
-      if (sortBy === 'premium_asc') {
-        return a.annual_premium - b.annual_premium;
-      }
-      if (sortBy === 'premium_desc') {
-        return b.annual_premium - a.annual_premium;
-      }
-      if (sortBy === 'coverage_desc') {
-        return b.coverage - a.coverage;
-      }
-      return 0;
+    if (filters.premiumPerMonth !== PremiumOption.NO_PREFERENCE) {
+      if (filters.premiumPerMonth === PremiumOption.BELOW_1K)
+        list = list.filter((p) => p.annual_premium / 12 < 1000);
+      else if (filters.premiumPerMonth === PremiumOption.ONE_TO_TWO_K)
+        list = list.filter((p) => p.annual_premium / 12 >= 1000 && p.annual_premium / 12 <= 2000);
+      else if (filters.premiumPerMonth === PremiumOption.TWO_TO_FOUR_K)
+        list = list.filter((p) => p.annual_premium / 12 >= 2000 && p.annual_premium / 12 <= 4000);
+      else if (filters.premiumPerMonth === PremiumOption.ABOVE_FOURK)
+        list = list.filter((p) => p.annual_premium / 12 > 4000);
+    }
+
+    if (filters.existingDiseaseWait !== ExistingDiseaseWaitOption.NO_PREFERENCE) {
+      const maxWait =
+        filters.existingDiseaseWait === ExistingDiseaseWaitOption.NO_WAITING_PERIOD
+          ? 0
+          : filters.existingDiseaseWait === ExistingDiseaseWaitOption.ONE_YEAR
+            ? 1
+            : filters.existingDiseaseWait === ExistingDiseaseWaitOption.TWO_YEARS
+              ? 2
+              : 3;
+      list = list.filter(
+        (p) => (p.pre_existing_wait_years ?? p.preexisting_wait_years ?? 4) <= maxWait
+      );
+    }
+
+    if (filters.selectedInsurers.length > 0) {
+      list = list.filter((p) =>
+        filters.selectedInsurers.some(
+          (ins: string) => ins.toLowerCase() === p.insurer?.toLowerCase()
+        )
+      );
+    }
+
+    if (filters.sortBy === SortByOption.PREMIUM_LOW_TO_HIGH)
+      list.sort((a, b) => a.annual_premium - b.annual_premium);
+    else if (filters.sortBy === SortByOption.CASHLESS_HOSPITALS)
+      list.sort((a, b) => (b.hospital_network_count ?? 0) - (a.hospital_network_count ?? 0));
+    else list.sort((a, b) => (b.suitability_score ?? 0) - (a.suitability_score ?? 0));
+
+    return list;
+  }, [plans, query, filters, cashlessOnly]);
+
+  const groupedByInsurer = useMemo(() => {
+    const map = new Map<string, Plan[]>();
+    filteredPlans.forEach((p) => {
+      const existing = map.get(p.insurer) ?? [];
+      map.set(p.insurer, [...existing, p]);
     });
-  }, [plans, query, premiumLimit, coverageMin, selectedTypes, selectedInsurers, sortBy]);
+    return Array.from(map.entries()).map(([insurer, insurerPlans]) => ({
+      insurer,
+      plans: insurerPlans,
+    }));
+  }, [filteredPlans]);
 
-  const activePlan = filteredAndSorted.find((plan) => plan.id === activeId) || filteredAndSorted[0];
+  const comparedPlansList = useMemo(
+    () => plans.filter((p) => compareIds.includes(Number(p.id))),
+    [plans, compareIds]
+  );
 
-  const comparedPlansList = useMemo(() => {
-    return plans.filter((p) => compareIds.includes(p.id));
-  }, [plans, compareIds]);
+  const activeFilterCount = [
+    filters.cover !== CoverOption.RECOMMENDED,
+    filters.sortBy !== SortByOption.RELEVANCE,
+    filters.benefits.length > 0,
+    filters.premiumPerMonth !== PremiumOption.NO_PREFERENCE,
+    filters.existingDiseaseWait !== ExistingDiseaseWaitOption.NO_PREFERENCE,
+    filters.selectedInsurers.length > 0,
+    cashlessOnly,
+  ].filter(Boolean).length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f4f6f8] flex items-center justify-center">
+        <span className="h-8 w-8 border-2 border-emerald-500 border-t-transparent animate-spin rounded-full" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-white lg:flex relative">
+    <div className="min-h-screen bg-[#f4f6f8] lg:flex relative">
       <Sidebar />
-      <main className="flex-1 px-4 sm:px-8 py-8 lg:px-12 pb-24">
-        <div className="mx-auto max-w-[1100px]">
-          
-          <header className="mb-10 border-b border-neutral-200 pb-8">
-            <SectionEyebrow>Find & Filter Policies</SectionEyebrow>
-            <div className="mt-4 grid gap-6 md:grid-cols-[1.5fr_1fr] md:items-end">
-              <h1 className="font-[var(--font-heading)] text-3xl font-black uppercase tracking-tight text-black md:text-4xl leading-none">
-                Explore Available Policies.
-              </h1>
-              
-              <div className="flex flex-col gap-3">
-                <FormField label="Search insurer or keyword">
-                  <div className="relative flex items-center">
-                    <input 
-                      className="field-input font-mono text-xs w-full pr-12 focus:border-b-2 focus:border-black transition-all" 
-                      placeholder="e.g. HDFC, Star, Care..."
-                      value={query} 
-                      onChange={(e) => setQuery(e.target.value)} 
+      <main className="flex-1 flex flex-col">
+        <ExplorerCoverageBar />
+
+        <div className="bg-white border-b border-neutral-100 px-4 sm:px-6 py-3 sticky top-0 z-30 shadow-sm">
+          <div className="max-w-[960px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-black text-neutral-800">{t('explorer.title')}</h1>
+              <p className="text-xs text-neutral-500">
+                {t('explorer.plansCount', { filtered: filteredPlans.length, total: plans.length })}
+              </p>
+            </div>
+            <div className="flex flex-col min-[420px]:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <input
+                className="px-3 py-2 border border-neutral-200 rounded-lg text-xs w-full sm:w-48 outline-none focus:border-emerald-400"
+                placeholder={t('explorer.searchPlaceholder')}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <div className="flex items-center justify-between sm:justify-start gap-2">
+                <div className="flex items-center gap-1.5 bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 shrink-0">
+                  <span className={`text-[11px] font-bold ${!payYearly ? 'text-emerald-700' : 'text-neutral-400'}`}>
+                    Monthly
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPayYearly((y) => !y)}
+                    aria-label="Toggle yearly pricing"
+                    className={`h-4 w-8 rounded-full p-0.5 shrink-0 ${payYearly ? 'bg-emerald-500' : 'bg-neutral-200'}`}
+                  >
+                    <div
+                      className={`h-3 w-3 rounded-full bg-white transition-transform ${payYearly ? 'translate-x-4' : ''}`}
                     />
-                    {query && (
-                      <button 
-                        onClick={() => setQuery('')}
-                        className="absolute right-2 font-mono text-[9px] uppercase tracking-widest text-[var(--ink-soft)] hover:text-black transition-colors"
-                      >
-                        [ Clear ]
-                      </button>
-                    )}
-                  </div>
-                </FormField>
-              </div>
-            </div>
-
-            {/* Filter pills and triggers bar */}
-            <div className="mt-6 flex flex-wrap gap-2.5 items-center">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`px-3 py-1.5 border font-mono text-[10px] uppercase tracking-wider transition-all ${
-                  showFilters || selectedTypes.length > 0 || selectedInsurers.length > 0 || premiumLimit < 25000 || coverageMin > 500000
-                    ? 'border-black bg-neutral-50 font-bold'
-                    : 'border-neutral-200 hover:border-black'
-                }`}
-                style={{ borderRadius: '12px' }}
-              >
-                {showFilters ? '[ Hide Filters ]' : '⚙ Refine Search Filters'}
-              </button>
-
-              {/* Sorting option trigger */}
-              <div className="flex items-center gap-1.5 border border-neutral-200 px-3 py-1.5" style={{ borderRadius: '12px' }}>
-                <span className="font-mono text-[9px] uppercase text-[var(--ink-soft)]">Sort By:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="font-mono text-[10px] uppercase tracking-wider bg-transparent outline-none cursor-pointer text-black"
-                >
-                  <option value="score">Match Score</option>
-                  <option value="premium_asc">Price Low to High</option>
-                  <option value="premium_desc">Price High to Low</option>
-                  <option value="coverage_desc">Coverage Sum</option>
-                </select>
-              </div>
-
-              {/* Active Filter Indicators */}
-              {premiumLimit < 25000 && (
-                <span className="bg-neutral-100 font-mono text-[9px] uppercase px-2 py-1" style={{ borderRadius: '12px' }}>
-                  Premium under ₹{premiumLimit.toLocaleString('en-IN')}
-                </span>
-              )}
-              {coverageMin > 500000 && (
-                <span className="bg-neutral-100 font-mono text-[9px] uppercase px-2 py-1" style={{ borderRadius: '12px' }}>
-                  Coverage over ₹{(coverageMin / 100000).toFixed(0)}L
-                </span>
-              )}
-              {(selectedTypes.length > 0 || selectedInsurers.length > 0 || premiumLimit < 25000 || coverageMin > 500000 || query) && (
+                  </button>
+                  <span className={`text-[11px] font-bold ${payYearly ? 'text-emerald-700' : 'text-neutral-400'}`}>
+                    Yearly
+                  </span>
+                </div>
                 <button
-                  onClick={resetFilters}
-                  className="font-mono text-[10px] uppercase text-[var(--ink-soft)] hover:text-black underline tracking-wider"
+                  onClick={() => setIsCompareDrawerOpen(true)}
+                  className="text-xs font-bold border border-neutral-200 rounded-lg px-3 py-2 hover:border-emerald-300 shrink-0"
                 >
-                  Clear All
+                  Compare{compareIds.length > 0 && ` (${compareIds.length})`}
                 </button>
-              )}
-            </div>
-
-            {/* Expandable Calibrate filters panel */}
-            {showFilters && (
-              <div className="mt-6 border border-neutral-200 p-6 bg-neutral-50 grid gap-6 md:grid-cols-2 lg:grid-cols-4 animate-slideDown" style={{ borderRadius: '12px' }}>
-                {/* Premium limit slider */}
-                <div className="space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Maximum Yearly Premium</span>
-                  <div className="flex justify-between font-mono text-xs font-bold">
-                    <span>₹3,600</span>
-                    <span className="text-black bg-neutral-200 px-1.5 py-0.5 rounded">₹{premiumLimit.toLocaleString('en-IN')}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="3600"
-                    max="25000"
-                    step="500"
-                    value={premiumLimit}
-                    onChange={(e) => setPremiumLimit(parseInt(e.target.value))}
-                    className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
-                  />
-                </div>
-
-                {/* Coverage threshold */}
-                <div className="space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Minimum Coverage Sum</span>
-                  <div className="flex justify-between font-mono text-xs font-bold">
-                    <span>₹5L</span>
-                    <span className="text-black bg-neutral-200 px-1.5 py-0.5 rounded">₹{(coverageMin / 100000).toFixed(0)}L</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="500000"
-                    max="5000000"
-                    step="500000"
-                    value={coverageMin}
-                    onChange={(e) => setCoverageMin(parseInt(e.target.value))}
-                    className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
-                  />
-                </div>
-
-                {/* Plan types list */}
-                <div className="space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Plan Types</span>
-                  <div className="max-h-[100px] overflow-y-auto space-y-1 pr-2">
-                    {PLAN_TYPES.map((type) => {
-                      const checked = selectedTypes.includes(type);
-                      return (
-                        <label key={type} className="flex items-center gap-2 cursor-pointer font-mono text-[11px] text-neutral-600 hover:text-black">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleType(type)}
-                            className="h-3 w-3 accent-black"
-                          />
-                          <span>{type}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Insurers list */}
-                <div className="space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block">Providers</span>
-                  <div className="max-h-[100px] overflow-y-auto space-y-1 pr-2">
-                    {INSURERS.map((insurer) => {
-                      const checked = selectedInsurers.includes(insurer);
-                      return (
-                        <label key={insurer} className="flex items-center gap-2 cursor-pointer font-mono text-[11px] text-neutral-600 hover:text-black">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleInsurer(insurer)}
-                            className="h-3 w-3 accent-black"
-                          />
-                          <span>{insurer}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border-b border-neutral-100 px-4 sm:px-6 py-2.5 sm:py-3 sticky top-[var(--explorer-header-h,72px)] sm:top-[52px] z-20 shadow-sm">
+          <div className="max-w-[960px] mx-auto flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-thin">
+            <span className="text-xs font-bold text-neutral-500 shrink-0">Quick filters</span>
+            <label className="flex items-center gap-0.5 rounded-full border border-neutral-200 px-3 py-1.5 shrink-0 bg-white">
+              <span className="text-xs font-semibold text-neutral-700">Cover</span>
+              <select
+                value={filters.cover}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, cover: e.target.value as CoverOption }))
+                }
+                className="appearance-none bg-transparent outline-none text-xs font-semibold pl-1"
+              >
+                <option value={CoverOption.RECOMMENDED}>All</option>
+                <option value={CoverOption.BELOW_5_LAKH}>Below 5L</option>
+                <option value={CoverOption.FIVE_TO_NINE_LAKH}>5L–9L</option>
+                <option value={CoverOption.TEN_TO_TWENTY_FOUR_LAKH}>10L–24L</option>
+                <option value={CoverOption.TWENTY_FIVE_TO_NINETY_NINE_LAKH}>25L–99L</option>
+                <option value={CoverOption.ONE_TO_TWO_CR}>1Cr–2Cr</option>
+                <option value={CoverOption.TWO_TO_SIX_CR}>2Cr+</option>
+              </select>
+              <ChevronDown size={11} className="text-neutral-400" />
+            </label>
+            <label className="flex items-center gap-0.5 rounded-full border border-neutral-200 px-3 py-1.5 shrink-0 bg-white">
+              <span className="text-xs font-semibold text-neutral-700">Sort</span>
+              <select
+                value={filters.sortBy}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, sortBy: e.target.value as SortByOption }))
+                }
+                className="appearance-none bg-transparent outline-none text-xs font-semibold pl-1"
+              >
+                <option value={SortByOption.RELEVANCE}>Relevance</option>
+                <option value={SortByOption.PREMIUM_LOW_TO_HIGH}>Price Low–High</option>
+                <option value={SortByOption.CASHLESS_HOSPITALS}>Cashless Hospitals</option>
+              </select>
+              <ChevronDown size={11} className="text-neutral-400" />
+            </label>
+            <button
+              onClick={() => setCashlessOnly((c) => !c)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold shrink-0 ${
+                cashlessOnly
+                  ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                  : 'border-neutral-200 bg-white'
+              }`}
+            >
+              Cashless Hospitals
+            </button>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={() => {
+                  setFilters(DEFAULT_FILTERS);
+                  setCashlessOnly(false);
+                }}
+                className="rounded-full border border-red-200 bg-red-50 text-red-600 px-3 py-1.5 text-xs font-semibold shrink-0"
+              >
+                Clear {activeFilterCount} ×
+              </button>
             )}
-          </header>
+            <div className="flex-1" />
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className="rounded-full border border-neutral-200 px-4 py-1.5 text-xs font-semibold flex items-center gap-1.5 shrink-0 bg-white"
+            >
+              <SlidersHorizontal size={12} />
+              All filters
+            </button>
+          </div>
+        </div>
 
-          {notification && (
-            <div className="mb-6 p-4 bg-black text-white font-mono text-xs uppercase tracking-wider" style={{ borderRadius: '12px' }}>
-              {notification}
+        {compareNotice && (
+          <div className="fixed top-20 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-50 mx-auto sm:mx-0 bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold px-4 py-3 rounded-xl shadow-lg">
+            {compareNotice}
+          </div>
+        )}
+
+        <div className="max-w-[960px] w-full mx-auto px-3 sm:px-6 py-4 sm:py-5 pb-32 sm:pb-36 space-y-5">
+          <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 sm:px-4 py-2.5 flex items-start sm:items-center gap-2">
+            <Sparkles size={13} className="text-amber-600 shrink-0" />
+            <p className="text-xs text-amber-800 font-medium">
+              {t('explorer.banner', { total: plans.length })}
+            </p>
+          </div>
+
+          {groupedByInsurer.length === 0 ? (
+            <div className="bg-white border border-dashed border-neutral-200 rounded-2xl p-16 text-center">
+              <p className="text-sm text-neutral-400">No plans match your filters.</p>
+              <button
+                onClick={() => {
+                  setFilters(DEFAULT_FILTERS);
+                  setCashlessOnly(false);
+                  setQuery('');
+                }}
+                className="mt-3 text-xs text-[#0078fd] font-bold hover:underline"
+              >
+                Clear all filters
+              </button>
             </div>
+          ) : (
+            groupedByInsurer.map(({ insurer, plans: groupPlans }) => (
+              <InsurerGroup
+                key={insurer}
+                insurer={insurer}
+                plans={groupPlans}
+                compareIds={compareIds}
+                payYearly={payYearly}
+                onToggleCompare={handleToggleCompare}
+                onStressTest={setSelectedPlanForStress}
+                onViewHospitals={setHospitalPlan}
+                router={router}
+              />
+            ))
           )}
-
-          <section className="grid gap-12 lg:grid-cols-[1.5fr_1fr]">
-            <div>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block mb-6">
-                Recommended Policies ({filteredAndSorted.length})
-              </span>
-              
-              <div className="space-y-4">
-                <div className="overflow-x-auto border border-neutral-200" style={{ borderRadius: '12px' }}>
-                  <table className="w-full border-collapse font-mono text-[11px] text-left text-neutral-600">
-                    <thead>
-                      <tr className="border-b border-neutral-200 bg-neutral-50 text-[9px] uppercase tracking-widest text-[var(--ink-soft)]">
-                        <th className="py-3 px-4 font-bold">Plan / Provider</th>
-                        <th className="py-3 px-4 font-bold hidden sm:table-cell">Type</th>
-                        <th className="py-3 px-4 font-bold">Premium</th>
-                        <th className="py-3 px-4 font-bold hidden md:table-cell">Coverage</th>
-                        <th className="py-3 px-4 font-bold hidden lg:table-cell">Wait Period</th>
-                        <th className="py-3 px-4 font-bold text-right">Score</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredAndSorted.slice(0, visibleCount).map((plan) => {
-                        const compared = isInCompare(plan.id);
-                        const isActive = activeId === plan.id;
-                        
-                        return (
-                          <tr
-                            key={String(plan.id)}
-                            onClick={() => setActiveId(plan.id as number)}
-                            className={`border-b border-neutral-100 last:border-b-0 cursor-pointer transition-colors hover:bg-neutral-50/50 ${
-                              isActive ? 'bg-neutral-50/90 font-bold text-black border-l-[3px] border-l-black' : 'bg-white'
-                            }`}
-                          >
-                            <td className="py-4 px-4">
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-black uppercase font-bold text-[12px]">{plan.name}</span>
-                                <span className="text-[9px] text-[var(--ink-soft)] uppercase">{plan.insurer}</span>
-                                {compared && (
-                                  <span className="mt-1 self-start font-mono text-[8px] uppercase bg-neutral-200 text-black px-1 font-bold" style={{ borderRadius: '12px' }}>
-                                    ✓ Compare
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 uppercase hidden sm:table-cell">{plan.type}</td>
-                            <td className="py-4 px-4 text-black font-semibold">
-                              ₹{plan.annual_premium.toLocaleString('en-IN')}/yr
-                            </td>
-                            <td className="py-4 px-4 text-[var(--ink-mid)] hidden md:table-cell">
-                              ₹{plan.coverage.toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-4 px-4 uppercase hidden lg:table-cell text-[var(--ink-mid)]">
-                              {plan.diabetes_day1 ? 'Day-1 Cover' : `${plan.pre_existing_wait_years ?? plan.preexisting_wait_years ?? 4} yrs`}
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="text-[14px] font-black text-black">
-                                {(plan.suitability_score || 8.4).toFixed(1)}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {filteredAndSorted.length === 0 && (
-                  <div className="border border-neutral-200 border-dashed p-12 text-center font-mono text-xs text-[var(--ink-soft)]" style={{ borderRadius: '12px' }}>
-                    No plans match your criteria. Try adjusting the yearly premium or the minimum coverage sum to see more options!
-                  </div>
-                )}
-
-                {filteredAndSorted.length > visibleCount && (
-                  <div className="flex justify-center mt-6">
-                    <button
-                      onClick={() => setVisibleCount((prev) => prev + 10)}
-                      className="w-full h-10 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer"
-                      style={{ borderRadius: '12px' }}
-                    >
-                      View More (+10 Policies)
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Sidebar Specifications block */}
-            <aside className="space-y-8">
-              {activePlan ? (
-                <>
-                  <AnnotationBox title="Active Selection">{String(activePlan.name)}</AnnotationBox>
-                  
-                  <div className="border border-neutral-200 p-6 bg-neutral-50" style={{ borderRadius: '12px' }}>
-                    <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--ink-soft)] block mb-4">Policy Coverage Sheet</span>
-                    <div className="space-y-3 font-mono text-xs">
-                      
-                      <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-[var(--ink-soft)]">Insurer</span>
-                        <span className="font-bold text-black uppercase">{activePlan.insurer}</span>
-                      </div>
-
-                      <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-[var(--ink-soft)]">Plan Type</span>
-                        <span className="font-bold text-black uppercase">{activePlan.type}</span>
-                      </div>
-
-                      <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-[var(--ink-soft)]">Monthly Premium</span>
-                        <span className="font-bold text-black">₹{Math.round(activePlan.annual_premium / 12).toLocaleString('en-IN')}/mo</span>
-                      </div>
-
-                      <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-[var(--ink-soft)]">Coverage Sum</span>
-                        <span className="font-bold text-black">₹{activePlan.coverage.toLocaleString('en-IN')}</span>
-                      </div>
-
-                      <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-[var(--ink-soft)]">Wait for Health Conditions</span>
-                        <span className="font-bold text-black uppercase">
-                          {activePlan.diabetes_day1 ? 'None (Day-1)' : `${activePlan.pre_existing_wait_years ?? activePlan.preexisting_wait_years ?? 4} Years`}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-[var(--ink-soft)]">Claims Settled Successfully</span>
-                        <span className="font-bold text-black">{activePlan.claim_settlement_ratio ? `${activePlan.claim_settlement_ratio}%` : 'N/A'}</span>
-                      </div>
-
-                      <div className="flex justify-between border-b border-neutral-200 pb-2">
-                        <span className="text-[var(--ink-soft)]">Hospital Networks</span>
-                        <span className="font-bold text-black">{activePlan.hospital_network_count ? `${activePlan.hospital_network_count.toLocaleString('en-IN')}+` : 'N/A'}</span>
-                      </div>
-
-                      <div className="flex justify-between">
-                        <span className="text-[var(--ink-soft)]">Unlimited Refills</span>
-                        <span className="font-bold text-black uppercase">{activePlan.restoration_benefit ? 'Yes' : 'No'}</span>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {activePlan.plain_english_explanation && (
-                    <div className="border border-neutral-200 p-4 bg-white mt-4 space-y-1.5" style={{ borderRadius: '12px' }}>
-                      <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-soft)] block">AI Recommendation Logic</span>
-                      <p className="font-mono text-xs leading-5 text-neutral-700 italic">
-                        &ldquo;{activePlan.plain_english_explanation}&rdquo;
-                      </p>
-                    </div>
-                  )}
-
-                  {activePlan.warning_flags && activePlan.warning_flags.length > 0 && (
-                    <div className="border border-amber-200 bg-amber-50/40 p-4 mt-4 space-y-2 animate-fadeIn" style={{ borderRadius: '12px' }}>
-                      <span className="font-mono text-[9px] uppercase tracking-wider text-amber-800 font-bold block">⚠️ Policy Warning Flags</span>
-                      <div className="flex flex-col gap-1.5">
-                        {activePlan.warning_flags.map((flag: string) => (
-                          <div key={flag} className="font-mono text-[10px] text-amber-900 flex items-start gap-1">
-                            <span>•</span>
-                            <span>{flag}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-4">
-                    {/* View comprehensive details page link */}
-                    <button 
-                      onClick={() => {
-                        if (activePlan.link) {
-                          window.open(activePlan.link, '_blank', 'noopener,noreferrer');
-                        } else {
-                          router.push(`/buy/${activePlan.id}`);
-                        }
-                      }}
-                      className="mono-btn-primary bg-black text-white hover:bg-neutral-900 transition-colors cursor-pointer w-full rounded-[2px] font-bold"
-                    >
-                      Buy Policy ›
-                    </button>
-
-                    <button 
-                      onClick={() => router.push(`/explorer/${activePlan.id}`)}
-                      className="w-full h-10 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer rounded-[2px]"
-                    >
-                      Open Policy Breakdown
-                    </button>
-
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <button 
-                        onClick={() => toggleCompare(activePlan.id)} 
-                        className={`w-full sm:flex-1 h-10 font-mono text-[10px] uppercase tracking-wider transition-all border cursor-pointer rounded-[2px] ${
-                          isInCompare(activePlan.id) 
-                            ? 'bg-black text-white border-black' 
-                            : 'border-neutral-200 hover:border-black text-black bg-white'
-                        }`}
-                      >
-                        {isInCompare(activePlan.id) ? '✓ Added' : 'Add to Compare'}
-                      </button>
-
-                      <button 
-                        onClick={() => setSelectedPlanForStress(activePlan)} 
-                        className="w-full sm:flex-1 h-10 border border-neutral-200 hover:border-black text-black font-mono text-[10px] uppercase tracking-wider transition-colors bg-white cursor-pointer rounded-[2px]"
-                      >
-                        Stress Test
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <AnnotationBox title="System State">Select a plan card to load comprehensive parameters.</AnnotationBox>
-              )}
-            </aside>
-          </section>
         </div>
       </main>
 
-      {/* Sticky Bottom Comparison Trigger */}
       {compareIds.length >= 2 && (
-        <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-200 bg-white p-4 lg:left-[290px] z-50 animate-slideUp">
-          <div className="mx-auto max-w-[1100px] flex justify-between items-center">
-            <span className="font-mono text-xs uppercase tracking-widest font-bold text-[var(--ink)]">
-              {compareIds.length} Plans Selected
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-4 sm:px-6 py-3 lg:left-[240px] z-40 shadow-lg safe-area-pb">
+          <div className="max-w-[960px] mx-auto flex flex-col min-[420px]:flex-row justify-between items-stretch min-[420px]:items-center gap-2">
+            <span className="text-sm font-black text-neutral-800 text-center min-[420px]:text-left">
+              {compareIds.length} plan{compareIds.length !== 1 ? 's' : ''} selected
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => setIsCompareDrawerOpen(true)}
-                className="h-10 px-5 bg-black text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-wider"
-                style={{ borderRadius: '12px' }}
+                className="flex-1 min-[420px]:flex-none h-10 sm:h-9 px-5 bg-emerald-600 text-white text-xs font-bold rounded-xl"
               >
-                Compare Plans
+                Compare now
               </button>
               <button
                 onClick={clearCompare}
-                className="h-10 px-4 border border-neutral-200 font-mono text-xs uppercase tracking-wider text-black hover:border-black"
-                style={{ borderRadius: '12px' }}
+                className="flex-1 min-[420px]:flex-none h-10 sm:h-9 px-4 border border-neutral-200 text-xs font-bold rounded-xl bg-white"
               >
                 Clear
               </button>
@@ -584,19 +432,31 @@ function ExplorerContent() {
         </div>
       )}
 
-      {/* Modals and drawer overlay mounts */}
-      <StressTestModal 
+      <StressTestModal
         plan={selectedPlanForStress}
         isOpen={!!selectedPlanForStress}
         onClose={() => setSelectedPlanForStress(null)}
       />
-
-      <CompareDrawer 
+      <CashlessHospitalsModal
+        plan={hospitalPlan}
+        defaultCityName={profileCity}
+        isOpen={!!hospitalPlan}
+        onClose={() => setHospitalPlan(null)}
+      />
+      <CompareDrawer
         plans={comparedPlansList}
         isOpen={isCompareDrawerOpen}
         onClose={() => setIsCompareDrawerOpen(false)}
         onClear={clearCompare}
         onSelectPlan={(id) => router.push(`/explorer/${id}`)}
+      />
+      <FilterPlansModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        allPlans={plans as import('../../components/FilterPlansModal').Plan[]}
+        activeFilters={filters}
+        onChangeFilters={setFilters}
+        onClearAll={() => setFilters(DEFAULT_FILTERS)}
       />
     </div>
   );
@@ -604,7 +464,13 @@ function ExplorerContent() {
 
 export default function ExplorerPage() {
   return (
-    <Suspense fallback={<div className="page-shell min-h-screen" />}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f4f6f8] flex items-center justify-center">
+          <span className="h-8 w-8 border-2 border-emerald-500 border-t-transparent animate-spin rounded-full" />
+        </div>
+      }
+    >
       <ExplorerContent />
     </Suspense>
   );

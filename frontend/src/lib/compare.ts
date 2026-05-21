@@ -23,7 +23,7 @@ export function saveCompareIds(ids: number[]) {
   }
 }
 
-export function useCompare() {
+export function useCompare(validPlanIds?: number[]) {
   const [ids, setIds] = useState<number[]>(() => getCompareIds());
 
   useEffect(() => {
@@ -40,23 +40,39 @@ export function useCompare() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!validPlanIds?.length) return;
+    const valid = new Set(validPlanIds);
+    const current = getCompareIds();
+    const pruned = current.filter((id) => valid.has(id));
+    if (pruned.length !== current.length) {
+      saveCompareIds(pruned);
+      setIds(pruned);
+    }
+  }, [validPlanIds]);
+
   const toggleCompare = (id: number) => {
+    const planId = Number(id);
+    if (!Number.isFinite(planId)) return false;
+
     const current = getCompareIds();
     let next: number[];
-    if (current.includes(id)) {
-      next = current.filter((x) => x !== id);
+    if (current.includes(planId)) {
+      next = current.filter((x) => x !== planId);
     } else {
       if (current.length >= 3) {
         return false;
       }
-      next = [...current, id];
+      next = [...current, planId];
     }
     saveCompareIds(next);
+    setIds(next);
     return true;
   };
 
   const clearCompare = () => {
     saveCompareIds([]);
+    setIds([]);
   };
 
   const isInCompare = (id: number) => ids.includes(id);

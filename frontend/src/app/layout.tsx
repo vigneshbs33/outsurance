@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Syne, Barlow_Condensed, Playfair_Display, JetBrains_Mono, DM_Sans, Space_Mono } from 'next/font/google';
-import { AuthProvider } from '../components/AuthProvider';
+import { AppProviders } from '../components/AppProviders';
 import './globals.css';
 
 const syne = Syne({ subsets: ['latin'], weight: ['400', '700', '800'], variable: '--font-display' });
@@ -23,7 +23,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        <AuthProvider>{children}</AuthProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

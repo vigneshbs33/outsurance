@@ -309,3 +309,28 @@ def rank_plans(plans: list, user: dict) -> list:
 
     results.sort(key=lambda p: p['suitability_score'], reverse=True)
     return results[:5]
+
+
+def score_all_plans(plans: list, user: dict) -> list:
+    """
+    Score every age-eligible plan (no Gemma). Used to attach KNN/suitability
+    to the full catalogue (~150–200 plans) for explorer and agent chat.
+    """
+    results = []
+    for plan in plans:
+        suit, breakdown = suitability_score(plan, user)
+        if suit == 0.0:
+            continue
+        sim = cosine_match_score(plan, user)
+        combined = round(0.60 * suit + 0.40 * sim, 1)
+        enriched = dict(plan)
+        enriched['suitability_score'] = combined
+        enriched['cosine_similarity'] = sim
+        enriched['suitability_breakdown'] = {
+            **{k: round(v, 1) for k, v in breakdown.items()},
+            'cosine_similarity': sim,
+        }
+        enriched['warning_flags'] = get_warning_flags(plan, user)
+        results.append(enriched)
+    results.sort(key=lambda p: p['suitability_score'], reverse=True)
+    return results

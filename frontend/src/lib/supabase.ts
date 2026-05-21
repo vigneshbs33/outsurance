@@ -166,7 +166,9 @@ export async function saveAssessmentResult(
       top_plan_ids: topPlans.map(p => ({
         id: p.id,
         score: p.suitability_score,
-        cosine_similarity: p.cosine_similarity,
+        cosine_similarity:
+          p.cosine_similarity ??
+          (p.suitability_breakdown as { cosine_similarity?: number } | undefined)?.cosine_similarity,
         plain_english_explanation: p.plain_english_explanation,
         warning_flags: p.warning_flags || [],
         suitability_breakdown: p.suitability_breakdown || null,

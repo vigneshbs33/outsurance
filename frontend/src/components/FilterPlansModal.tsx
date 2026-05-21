@@ -74,14 +74,14 @@ export function FilterPlansModal({
 
   const uniqueInsurers = useMemo(() => {
     const set = new Set<string>();
-    allPlans.forEach((p) => {
+    (allPlans ?? []).forEach((p) => {
       if (p.insurer) set.add(p.insurer);
     });
     return Array.from(set).sort();
   }, [allPlans]);
 
   const filteredPlansCount = useMemo(() => {
-    let list = [...allPlans];
+    let list = [...(allPlans ?? [])];
 
     if (tempFilters.cover !== CoverOption.RECOMMENDED) {
       if (tempFilters.cover === CoverOption.BELOW_5_LAKH) {

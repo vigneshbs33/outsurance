@@ -48,6 +48,58 @@ def get_plan_hospitals_by_city(plan_id: int, city_id: int) -> list[dict]:
     return entry.get("city_hospitals", {}).get(str(city_id), [])
 
 
+def get_plan_city_stats(plan_id: int) -> list[dict]:
+    """Per-city hospital counts for a plan (for network browser UI)."""
+    entry = get_plan_network(plan_id)
+    if not entry:
+        return []
+    city_hospitals = entry.get("city_hospitals", {})
+    stats = []
+    for city in get_cities():
+        cid = city["id"]
+        hospitals = city_hospitals.get(str(cid), [])
+        cashless = sum(1 for h in hospitals if h.get("settlement") == "cashless")
+        stats.append({
+            **city,
+            "total": len(hospitals),
+            "cashless": cashless,
+            "cash": len(hospitals) - cashless,
+        })
+    return stats
+
+
+def filter_plan_hospitals(
+    plan_id: int,
+    city_id: int,
+    *,
+    query: str = "",
+    settlement: str = "all",
+    offset: int = 0,
+    limit: int = 80,
+) -> dict[str, Any]:
+    hospitals = list(get_plan_hospitals_by_city(plan_id, city_id))
+    q = (query or "").strip().lower()
+    if q:
+        hospitals = [
+            h
+            for h in hospitals
+            if q in h.get("hospital_name", "").lower() or q in h.get("area", "").lower()
+        ]
+    if settlement == "cashless":
+        hospitals = [h for h in hospitals if h.get("settlement") == "cashless"]
+    elif settlement == "cash":
+        hospitals = [h for h in hospitals if h.get("settlement") != "cashless"]
+    total = len(hospitals)
+    page = hospitals[offset : offset + limit]
+    return {
+        "total": total,
+        "hospitals": page,
+        "offset": offset,
+        "limit": limit,
+        "has_more": offset + limit < total,
+    }
+
+
 def get_comparison_rows(plan_ids: list[int]) -> list[dict]:
     """Flatten benefits into comparison-friendly rows for multiple plans."""
     rows = []

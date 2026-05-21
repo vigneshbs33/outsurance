@@ -3,6 +3,21 @@ import plansFallback from './plans.json';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000/api';
 
+/** Score full plan catalogue with KNN + suitability (no Gemma). */
+export async function rankAllPlans(profileData: Record<string, unknown>) {
+  const token = await getJWT();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const response = await fetch(`${BACKEND_URL}/rank-plans`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(profileData),
+  });
+  if (!response.ok) throw new Error(`Rank plans error ${response.status}`);
+  return await response.json();
+}
+
 export async function assessHealthProfile(profileData: Record<string, unknown>) {
   const token = await getJWT();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };

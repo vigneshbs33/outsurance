@@ -3,21 +3,24 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Compass, LayoutDashboard, LogOut, Plus, Shield, User, Bookmark } from 'lucide-react';
+import { Compass, LayoutDashboard, LogOut, Plus, User, Bookmark, MessageSquareText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Crosshair } from './editorial';
+import { useLanguage } from './LanguageProvider';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/explorer', label: 'Plan Explorer', icon: Compass },
-  { href: '/saved', label: 'Saved Plans', icon: Bookmark },
-  { href: '/profile', label: 'Profile', icon: User },
-];
+  { href: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { href: '/explorer', labelKey: 'nav.explorer', icon: Compass },
+  { href: '/forum', labelKey: 'nav.forum', icon: MessageSquareText },
+  { href: '/saved', labelKey: 'nav.saved', icon: Bookmark },
+  { href: '/profile', labelKey: 'nav.profile', icon: User },
+] as const;
 
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useLanguage();
   const [name, setName] = useState('Member');
   const [initials, setInitials] = useState('FI');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -74,7 +77,7 @@ export default function Sidebar() {
           </div>
 
           <nav className="space-y-4">
-            {navItems.map(({ href, label, icon: Icon }) => {
+            {navItems.map(({ href, labelKey, icon: Icon }) => {
               const active = pathname === href;
               return (
                 <Link
@@ -86,7 +89,7 @@ export default function Sidebar() {
                 >
                   <div>
                     <p className="font-mono text-[9px] uppercase tracking-wider text-neutral-400">{href.replace('/', '') || 'home'}</p>
-                    <p className="mt-1 font-[var(--font-heading)] text-lg font-bold tracking-tight text-black">{label}</p>
+                    <p className="mt-1 font-[var(--font-heading)] text-lg font-bold tracking-tight text-black">{t(labelKey)}</p>
                   </div>
                   <Icon size={16} className="text-black" />
                 </Link>
@@ -102,7 +105,7 @@ export default function Sidebar() {
             style={{ borderRadius: '2px' }}
           >
             <Plus size={14} className="text-white" />
-            <span className="font-mono text-xs uppercase tracking-wider font-bold text-white">New Assessment</span>
+            <span className="font-mono text-xs uppercase tracking-wider font-bold text-white">{t('nav.newAssessment')}</span>
           </Link>
 
           <div className="border-t border-neutral-200 pt-5">
@@ -168,7 +171,7 @@ export default function Sidebar() {
 
           {/* Navigation Links inside Drawer */}
           <nav className="flex-1 flex flex-col justify-center space-y-6">
-            {navItems.map(({ href, label, icon: Icon }) => {
+            {navItems.map(({ href, labelKey, icon: Icon }) => {
               const active = pathname === href;
               return (
                 <Link
@@ -184,7 +187,7 @@ export default function Sidebar() {
                       {href.replace('/', '') || 'home'}
                     </span>
                     <span className="font-[var(--font-heading)] text-2xl font-black uppercase tracking-tight text-black">
-                      {label}
+                      {t(labelKey)}
                     </span>
                   </div>
                   <Icon size={24} className="text-black" />
@@ -202,7 +205,7 @@ export default function Sidebar() {
               style={{ borderRadius: '2px' }}
             >
               <Plus size={14} className="text-white" />
-              <span className="font-mono text-xs uppercase tracking-wider font-bold text-white">New Assessment</span>
+              <span className="font-mono text-xs uppercase tracking-wider font-bold text-white">{t('nav.newAssessment')}</span>
             </Link>
 
             <div className="flex items-center justify-between pt-2">

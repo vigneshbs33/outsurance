@@ -31,8 +31,11 @@
   --ghost: var(--lighter-grey);
   --dim: var(--light-grey);
   --border: var(--off-white);
-  --pb-blue: #0d3c94;
-  --pb-light-blue: #0078fd;
+  --brand-teal: #0d9488;
+  --brand-teal-dark: #0f766e;
+  --brand-teal-light: #14b8a6;
+  --pb-blue: var(--brand-teal-dark);
+  --pb-light-blue: var(--brand-teal);
   --pb-orange: #ff4f18;
   --pb-bg-grey: #637588;
   --pb-text-dark: #253858;

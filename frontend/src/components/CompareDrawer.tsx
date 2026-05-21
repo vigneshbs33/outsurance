@@ -105,48 +105,54 @@ export function CompareDrawer({ plans, isOpen, onClose, onClear, onSelectPlan }:
   ];
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/40 backdrop-blur-[1px] p-0 md:p-6 animate-fadeIn">
-      <div className="absolute inset-0 -z-10" onClick={onClose} />
+    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/40 backdrop-blur-[1px] p-0 sm:p-4 md:p-6 animate-fadeIn">
+      <div className="absolute inset-0 -z-10" onClick={onClose} aria-hidden />
 
-      <div 
-        className="w-full max-w-[800px] border-t-4 border-[#0d3c94] bg-white p-6 shadow-2xl transition-all duration-300 md:max-h-[85vh] overflow-y-auto rounded-t-xl"
+      <div
+        className="w-full max-w-[800px] border-t-4 border-teal-700 bg-white p-4 sm:p-6 shadow-2xl transition-all duration-300 max-h-[92vh] sm:max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl"
+        role="dialog"
+        aria-labelledby="compare-drawer-title"
       >
-        <header className="mb-6 flex justify-between items-center">
-          <div>
+        <header className="mb-4 sm:mb-6 flex justify-between items-start gap-3">
+          <div className="min-w-0">
             <span className="font-sans text-[10px] uppercase font-bold tracking-wider text-neutral-400">Compare Policies</span>
-            <h2 className="font-sans text-lg font-black uppercase tracking-tight text-neutral-800">
+            <h2
+              id="compare-drawer-title"
+              className="font-sans text-base sm:text-lg font-black uppercase tracking-tight text-neutral-800"
+            >
               Compare Policy Details
             </h2>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="font-sans text-xs uppercase font-bold text-neutral-400 hover:text-neutral-700 transition-colors"
+            className="font-sans text-xs uppercase font-bold text-neutral-400 hover:text-neutral-700 transition-colors shrink-0 pt-1"
           >
-            [ Close ]
+            Close
           </button>
         </header>
 
-        <div className="overflow-x-auto border border-neutral-200 rounded-xl">
-          <table className="w-full min-w-[500px] border-collapse font-sans text-xs">
+        <div className="-mx-1 sm:mx-0 overflow-x-auto border border-neutral-200 rounded-xl">
+          <table className="w-full min-w-[min(100%,480px)] border-collapse font-sans text-xs">
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50">
-                <th className="p-3 text-left font-bold text-neutral-500 uppercase tracking-wider text-[10px] w-[140px] sticky left-0 bg-neutral-50 z-10 border-r border-neutral-200">
-                  Policy Features
+                <th className="p-2 sm:p-3 text-left font-bold text-neutral-500 uppercase tracking-wider text-[10px] w-24 sm:w-[140px] sticky left-0 bg-neutral-50 z-10 border-r border-neutral-200">
+                  Feature
                 </th>
                 {plans.map((plan) => {
                   const selected = selectedPlanId === plan.id;
                   return (
-                    <th 
+                    <th
                       key={plan.id}
                       onClick={() => setSelectedPlanId(plan.id)}
-                      className={`p-3 text-center cursor-pointer transition-all border-r border-neutral-200 last:border-r-0 ${
-                        selected ? 'bg-blue-50/50 font-bold border-b-2 border-b-[#0078fd]' : 'hover:bg-neutral-50'
+                      className={`p-2 sm:p-3 text-center cursor-pointer transition-all border-r border-neutral-200 last:border-r-0 min-w-[96px] ${
+                        selected ? 'bg-emerald-50/50 font-bold border-b-2 border-b-teal-600' : 'hover:bg-neutral-50'
                       }`}
                     >
-                      <span className="text-[10px] uppercase text-neutral-400 font-semibold tracking-wider block">
+                      <span className="text-[9px] sm:text-[10px] uppercase text-neutral-400 font-semibold tracking-wider block leading-tight">
                         {plan.insurer}
                       </span>
-                      <span className="font-bold text-neutral-800 uppercase tracking-tight text-xs block mt-0.5">
+                      <span className="font-bold text-neutral-800 text-[10px] sm:text-xs block mt-0.5 leading-tight line-clamp-2">
                         {plan.name}
                       </span>
                     </th>
@@ -162,19 +168,19 @@ export function CompareDrawer({ plans, isOpen, onClose, onClear, onSelectPlan }:
                     rIdx % 2 === 0 ? 'bg-white' : 'bg-neutral-50/30'
                   }`}
                 >
-                  <td className="p-3 text-left font-bold text-neutral-700 border-r border-neutral-200 sticky left-0 bg-white z-10">
+                  <td className="p-2 sm:p-3 text-left font-bold text-neutral-700 border-r border-neutral-200 sticky left-0 bg-inherit z-[1] text-[10px] sm:text-xs">
                     {row.label}
                   </td>
                   {plans.map((plan) => {
                     const isBestCell = row.isBest(plan, plans);
                     const selected = selectedPlanId === plan.id;
                     return (
-                      <td 
+                      <td
                         key={plan.id}
                         onClick={() => setSelectedPlanId(plan.id)}
-                        className={`p-3 text-center border-r border-neutral-200 last:border-r-0 cursor-pointer transition-colors ${
+                        className={`p-2 sm:p-3 text-center border-r border-neutral-200 last:border-r-0 cursor-pointer transition-colors text-[10px] sm:text-xs whitespace-nowrap ${
                           isBestCell ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-neutral-600'
-                        } ${selected && !isBestCell ? 'bg-blue-50/20' : ''}`}
+                        } ${selected && !isBestCell ? 'bg-emerald-50/20' : ''}`}
                       >
                         {row.getValue(plan)}
                       </td>
