@@ -11,39 +11,54 @@ This project consists of:
 
 ---
 
-## 🚀 How to Run the Project
+## 🚀 Quick start (one command)
 
-### 1. Start the Backend (API + ML + AI Agent)
-The backend needs Python 3.12+ and uses Uvicorn.
+From the **project root** (`fidsurance/`):
+
+```bash
+npm start
+```
+
+Or without npm:
+
+```bash
+bash scripts/start.sh
+```
+
+**Requirements:** Node.js 18+, Python 3.12+, npm.
+
+| Service   | URL |
+|-----------|-----|
+| **App (UI)** | http://localhost:3000 |
+| **API**      | http://localhost:8000 |
+| **API docs** | http://localhost:8000/docs |
+
+The script creates a Python venv, installs dependencies on first run, then starts **backend + frontend** together. Press **Ctrl+C** to stop both.
+
+---
+
+## Manual setup (optional)
+
+<details>
+<summary>Run backend and frontend separately</summary>
+
+### Backend (API + ML + AI Agent)
 ```bash
 cd backend
-# Create and activate a virtual environment (recommended)
-python -m venv venv
-.\venv\Scripts\activate   # Windows
-# source venv/bin/activate # Mac/Linux
-
-# Install dependencies
+python3 -m venv venv
+source venv/bin/activate   # Windows: .\venv\Scripts\activate
 pip install -r requirements.txt
-
-# Start the server
 uvicorn app.main:app --reload --port 8000
 ```
-> The API will be available at `http://localhost:8000`.
-> Swagger UI documentation is at `http://localhost:8000/docs`.
 
-### 2. Start the Frontend (UI)
-The frontend is a Next.js 16 app with TypeScript and Tailwind CSS v4.
+### Frontend (Next.js)
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start the Next.js development server
 npm run dev
 ```
-> Open **http://localhost:3000** in your browser.
-> Make sure the backend server is also running at port 8000.
+
+</details>
 
 ---
 

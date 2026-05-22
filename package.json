@@ -1,0 +1,9 @@
+{
+  "name": "outsurance",
+  "private": true,
+  "description": "Outsurance — AI health insurance platform",
+  "scripts": {
+    "start": "bash scripts/start.sh",
+    "dev": "bash scripts/start.sh"
+  }
+}
