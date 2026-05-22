@@ -67,7 +67,8 @@ npm run dev
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/api/health` | Backend status (model loaded, plan count) |
-| `GET` | `/api/plans` | All 20 insurance plans |
+| `GET` | `/api/plans` | Full insurance catalogue (~154 plans) |
+| `POST` | `/api/rank-plans` | Score entire catalogue with KNN + suitability |
 | `POST` | `/api/assess` | **3-stage ML pipeline** — returns risk tier + top 5 plans with warning flags |
 | `POST` | `/api/agent` | **Master Orchestration Agent** — natural language, 6 tools (reassess / budget_sim / stress_test / compare / explain_risk / plan_info) |
 | `POST` | `/api/chat` | Simple conversational chat (no tool execution) |
