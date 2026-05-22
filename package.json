@@ -3,6 +3,7 @@
   "private": true,
   "description": "Outsurance — AI health insurance platform",
   "scripts": {
+    "setup": "bash scripts/install.sh",
     "start": "bash scripts/start.sh",
     "dev": "bash scripts/start.sh"
   }

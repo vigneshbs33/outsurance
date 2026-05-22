@@ -1,40 +1,23 @@
 #!/usr/bin/env bash
-# Start Outsurance backend (port 8000) + frontend (port 3000) with one command.
+# Run backend + frontend (run `npm run setup` first).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="$ROOT/backend"
 FRONTEND_DIR="$ROOT/frontend"
 
-echo "▶ Outsurance — starting backend + frontend"
-echo "   Repo: $ROOT"
+if [ ! -d "$BACKEND_DIR/venv" ] || [ ! -d "$FRONTEND_DIR/node_modules" ]; then
+  echo "✗ Dependencies not installed."
+  echo "  Run first:  npm run setup"
+  exit 1
+fi
+
+echo "▶ Outsurance — starting servers"
 echo ""
 
-# ── Backend venv + deps ─────────────────────────────────────────────────────
-cd "$BACKEND_DIR"
-if [ ! -d venv ]; then
-  echo "▶ Creating Python venv…"
-  python3 -m venv venv
-fi
-# shellcheck source=/dev/null
-source venv/bin/activate
-
-if ! python -c "import fastapi" 2>/dev/null; then
-  echo "▶ Installing backend dependencies (first run only)…"
-  pip install -q -r requirements.txt
-fi
-
-# ── Frontend deps ───────────────────────────────────────────────────────────
-cd "$FRONTEND_DIR"
-if [ ! -d node_modules ]; then
-  echo "▶ Installing frontend dependencies (first run only)…"
-  npm install
-fi
-
-# ── Launch both servers ─────────────────────────────────────────────────────
 cleanup() {
   echo ""
-  echo "▶ Shutting down…"
+  echo "▶ Stopping…"
   [ -n "${BACKEND_PID:-}" ] && kill "$BACKEND_PID" 2>/dev/null || true
   [ -n "${FRONTEND_PID:-}" ] && kill "$FRONTEND_PID" 2>/dev/null || true
   wait 2>/dev/null || true
@@ -43,6 +26,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd "$BACKEND_DIR"
+# shellcheck source=/dev/null
 source venv/bin/activate
 echo "▶ Backend  → http://localhost:8000  (docs: /docs)"
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
@@ -54,8 +38,7 @@ npm run dev &
 FRONTEND_PID=$!
 
 echo ""
-echo "✓ Both servers running. Press Ctrl+C to stop."
-echo "  Open http://localhost:3000 for the app."
+echo "✓ Running. Open http://localhost:3000 — Ctrl+C to stop."
 echo ""
 
 wait

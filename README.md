@@ -11,50 +11,66 @@ This project consists of:
 
 ---
 
-## 🚀 Quick start (one command)
+## Requirements
 
-From the **project root** (`fidsurance/`):
+- **Node.js** 18+ and **npm**
+- **Python** 3.12+
+
+## Installation (once)
+
+Clone the repo, then from the **project root**:
+
+```bash
+git clone https://github.com/vigneshbs33/outsurance.git
+cd outsurance
+npm run setup
+```
+
+This installs backend Python packages (`backend/venv`) and frontend npm packages (`frontend/node_modules`). You only need to run this again after pulling dependency changes.
+
+Equivalent without npm:
+
+```bash
+bash scripts/install.sh
+```
+
+## Run (every time)
+
+From the **project root**:
 
 ```bash
 npm start
 ```
 
-Or without npm:
+| Service | URL |
+|---------|-----|
+| **App (UI)** | http://localhost:3000 |
+| **API** | http://localhost:8000 |
+| **Swagger** | http://localhost:8000/docs |
+
+Press **Ctrl+C** to stop backend and frontend.
 
 ```bash
-bash scripts/start.sh
+bash scripts/start.sh   # same as npm start
 ```
-
-**Requirements:** Node.js 18+, Python 3.12+, npm.
-
-| Service   | URL |
-|-----------|-----|
-| **App (UI)** | http://localhost:3000 |
-| **API**      | http://localhost:8000 |
-| **API docs** | http://localhost:8000/docs |
-
-The script creates a Python venv, installs dependencies on first run, then starts **backend + frontend** together. Press **Ctrl+C** to stop both.
 
 ---
 
 ## Manual setup (optional)
 
 <details>
-<summary>Run backend and frontend separately</summary>
+<summary>Run backend and frontend in separate terminals</summary>
 
-### Backend (API + ML + AI Agent)
+**Terminal 1 — API**
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate   # Windows: .\venv\Scripts\activate
-pip install -r requirements.txt
+source venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend (Next.js)
+**Terminal 2 — UI**
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
