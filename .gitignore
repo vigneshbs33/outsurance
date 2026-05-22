@@ -27,3 +27,6 @@ fidsurance_model_meta.json
 # IDE
 .vscode/
 .idea/
+
+# Temporary folders
+policy-bazaar-clone-temp/
