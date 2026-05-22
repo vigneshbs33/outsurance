@@ -15,6 +15,19 @@ fi
 echo "▶ Outsurance — starting servers"
 echo ""
 
+free_port() {
+  local port=$1
+  local pids
+  pids=$(lsof -ti :"$port" 2>/dev/null || true)
+  if [ -n "$pids" ]; then
+    echo "   Freeing port $port (was in use)…"
+    kill -9 $pids 2>/dev/null || true
+    sleep 0.8
+  fi
+}
+free_port 8000
+free_port 3000
+
 cleanup() {
   echo ""
   echo "▶ Stopping…"
